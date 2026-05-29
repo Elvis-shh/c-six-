@@ -1,0 +1,12 @@
+# docker-compose.yml — SmartReport 服务编排
+# 占位文件，待实现
+
+# services:
+#   frontend:
+#   backend:
+#   ai-engine:
+#   mysql:
+#   redis:
+#   rocketmq-namesrv:
+#   rocketmq-broker:
+#   minio:

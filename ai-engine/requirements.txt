@@ -1,0 +1,2 @@
+# requirements.txt — Python 依赖
+# 占位文件，待实现

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartReport 搜索入口</title>
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --primary: #2563eb;
+            --primary-light: #3b82f6;
+            --text: #1f2937;
+            --text-muted: #64748b;
+            --border: #d1d5db;
+            --radius: 18px;
+            --shadow: 0 18px 60px rgba(15, 23, 42, 0.08);
+            --transition: 0.2s ease;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 30%), #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 38px 24px 42px;
+        }
+        .brand {
+            font-size: 42px;
+            font-weight: 700;
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 14px;
+        }
+        .subtitle {
+            font-size: 18px;
+            color: var(--text-muted);
+            text-align: center;
+            max-width: 720px;
+            line-height: 1.8;
+            margin-bottom: 28px;
+        }
+        .search-container {
+            width: 100%;
+            max-width: 720px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+        .search-box {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            border: 1px solid #cbd5e1;
+            border-radius: 30px;
+            background: #fff;
+            box-shadow: 0 8px 28px rgba(15,23,42,0.08);
+            transition: var(--transition);
+        }
+        .search-box:hover {
+            box-shadow: 0 12px 32px rgba(15,23,42,0.14);
+        }
+        .search-box:focus-within {
+            border-color: rgba(37, 99, 235, 0.45);
+            box-shadow: 0 14px 38px rgba(37, 99, 235, 0.16);
+        }
+        .search-box input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 20px;
+            color: var(--text);
+            padding: 18px 0;
+            background: transparent;
+        }
+        .search-box .search-icon {
+            font-size: 24px;
+            color: #7c93b6;
+            margin-right: 14px;
+        }
+        .icon-btn {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 20px;
+            margin-left: 12px;
+            padding: 8px;
+            border-radius: 999px;
+            color: #4b5563;
+            transition: background var(--transition), color var(--transition);
+        }
+        .icon-btn:hover {
+            background: rgba(37, 99, 235, 0.08);
+            color: var(--primary);
+        }
+        .action-panel {
+            width: 100%;
+            padding: 18px 20px;
+            border-radius: 20px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            display: none;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .action-panel.show {
+            display: flex;
+        }
+        .action-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .action-panel-header span {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .action-panel textarea {
+            width: 100%;
+            min-height: 140px;
+            resize: vertical;
+            border: 1px solid #dadce0;
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-size: 15px;
+            font-family: inherit;
+            outline: none;
+            color: var(--text);
+        }
+        .action-panel textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+        }
+        .upload-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 18px 20px;
+            border: 1px dashed rgba(37, 99, 235, 0.55);
+            border-radius: 20px;
+            background: rgba(37, 99, 235, 0.05);
+            cursor: pointer;
+            transition: transform var(--transition), background var(--transition), box-shadow var(--transition);
+        }
+        .upload-card:hover {
+            transform: translateY(-2px);
+            background: rgba(37, 99, 235, 0.12);
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.12);
+        }
+        .upload-card-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(59, 130, 246, 0.1));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: var(--primary);
+            box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.12);
+        }
+        .upload-card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+        .upload-card-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        .action-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .action-row button {
+            flex: 1;
+            min-width: 120px;
+            border-radius: 14px;
+            border: 1px solid #dadce0;
+            background: #f8fafc;
+            color: var(--text);
+            padding: 12px 14px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .action-row button:hover {
+            border-color: var(--primary);
+            background: #fff;
+        }
+        .suggest-item.highlight {
+            border-color: #2563eb;
+            background: rgba(37, 99, 235, 0.08);
+        }
+        .btn {
+            border: none;
+            outline: none;
+            cursor: pointer;
+            border-radius: 4px;
+            padding: 12px 20px;
+            font-size: 16px;
+            transition: var(--transition);
+            font-weight: 500;
+        }
+        .btn-primary {
+            background: #f8f9fa;
+            color: #3c4043;
+            border: 1px solid #f8f9fa;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #dadce0;
+            color: #3c4043;
+        }
+        .btn-outline:hover {
+            border-color: #c4c7c5;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .samples {
+            width: min(920px, 100%);
+            margin: 26px auto 0;
+            pointer-events: auto;
+            z-index: 10;
+            padding: 24px 28px;
+            border-radius: 32px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.68), rgba(239, 246, 255, 0.54));
+            border: 1px solid rgba(191, 219, 254, 0.72);
+            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+            backdrop-filter: blur(14px);
+        }
+        .samples .hint {
+            display: none;
+        }
+        .sample-row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+            align-items: stretch;
+        }
+        .sample-side {
+            display: contents;
+        }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 64px;
+            padding: 17px 20px;
+            border-radius: 999px;
+            border: 2px solid rgba(37, 99, 235, 0.3);
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.9));
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 12px 34px rgba(37, 99, 235, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(12px);
+            position: relative;
+            animation: flow 8s ease-in-out infinite;
+            overflow: hidden;
+        }
+        .chip::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.1), transparent);
+            animation: shimmer 3s ease-in-out infinite;
+        }
+        .chip:nth-child(1) { animation-delay: 0s; }
+        .chip:nth-child(2) { animation-delay: 1.2s; }
+        .chip:nth-child(3) { animation-delay: 2.4s; }
+        .chip:nth-child(4) { animation-delay: 0.6s; }
+        .chip:nth-child(5) { animation-delay: 1.8s; }
+        .chip:nth-child(6) { animation-delay: 3s; }
+        .chip:hover {
+            border-color: var(--primary);
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(59, 130, 246, 0.05));
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 16px 48px rgba(37, 99, 235, 0.25), 0 0 0 1px rgba(37, 99, 235, 0.2);
+            animation-play-state: paused;
+        }
+        .chip:hover::before {
+            animation-play-state: paused;
+        }
+        @keyframes flow {
+            0%, 100% {
+                transform: translateY(0px) rotate(0deg);
+                opacity: 0.9;
+            }
+            25% {
+                transform: translateY(-8px) rotate(1deg);
+                opacity: 1;
+            }
+            50% {
+                transform: translateY(-4px) rotate(0deg);
+                opacity: 0.95;
+            }
+            75% {
+                transform: translateY(-12px) rotate(-1deg);
+                opacity: 1;
+            }
+        }
+        @keyframes shimmer {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+        .file-input {
+            display: none;
+        }
+        .suggestions {
+            margin-top: 10px;
+            display: grid;
+            gap: 8px;
+        }
+        .suggest-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-radius: 14px;
+            border: 1px solid transparent;
+            transition: var(--transition);
+            cursor: pointer;
+            background: #f8fafc;
+            color: var(--text);
+            font-size: 16px;
+        }
+        .suggest-item:hover {
+            border-color: var(--primary);
+            background: #fff;
+        }
+        .suggest-code {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-family: 'SF Mono', Consolas, 'Segoe UI', sans-serif;
+        }
+        @media (max-width: 600px) {
+            body {
+                justify-content: flex-start;
+                padding-top: 36px;
+            }
+            .brand {
+                font-size: 32px;
+            }
+            .subtitle {
+                font-size: 16px;
+            }
+            .search-box input {
+                font-size: 16px;
+                padding: 12px 0;
+            }
+            .search-box .search-icon {
+                font-size: 20px;
+            }
+            .btn {
+                font-size: 14px;
+                padding: 10px 16px;
+            }
+            .suggest-item {
+                font-size: 14px;
+                padding: 10px 12px;
+            }
+            .sample-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            .samples {
+                margin-top: 18px;
+                padding: 16px;
+                border-radius: 24px;
+            }
+            .chip {
+                min-height: 48px;
+                padding: 12px 18px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="brand">SmartReport</div>
+    <div class="search-container">
+        <div class="search-box">
+            <span class="search-icon">🔎</span>
+            <input id="landingSearchInput" type="text" placeholder="贵州茅台 / 600519" autocomplete="off">
+            <button class="icon-btn" type="button" onclick="toggleActionPanel('upload')" title="上传财报">📁</button>
+            <button class="icon-btn" type="button" onclick="toggleActionPanel('manual')" title="手动输入">✏️</button>
+        </div>
+        <div class="action-panel" id="actionPanel">
+            <div class="action-panel-header">
+                <span id="actionPanelTitle">请选择上传文件或手动输入文本</span>
+                <button class="icon-btn" type="button" onclick="hideActionPanel()">✕</button>
+            </div>
+            <div id="uploadSection" style="display:none;">
+                <div class="upload-card" onclick="document.getElementById('landingFileInput').click()">
+                    <div class="upload-card-icon">📁</div>
+                    <div>
+                        <div class="upload-card-title">点击上传 PDF / Word</div>
+                        <div class="upload-card-desc">支持 PDF、Word、Excel、TXT，直接读取财报内容</div>
+                    </div>
+                </div>
+            </div>
+            <div id="manualSection" style="display:none;">
+                <textarea id="actionManualText" placeholder="粘贴财报文本、摘要或分析请求，例如：2024 年营收 1748 亿元、归母净利润 862 亿元，现金流情况..."></textarea>
+                <div class="action-row">
+                    <button type="button" onclick="submitActionManualText()">开始分析</button>
+                    <button type="button" onclick="hideActionPanel()">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="suggestions" id="searchHints"></div>
+    <div class="samples">
+        <div class="sample-row">
+            <div class="sample-side left">
+                <div class="chip" onclick="loadSample('贵州茅台', '600519')">贵州茅台 600519</div>
+                <div class="chip" onclick="loadSample('宁德时代', '300750')">宁德时代 300750</div>
+                <div class="chip" onclick="loadSample('比亚迪', '002594')">比亚迪 002594</div>
+            </div>
+            <div class="sample-side right">
+                <div class="chip" onclick="loadSample('中国平安', '601318')">中国平安 601318</div>
+                <div class="chip" onclick="loadSample('招商银行', '600036')">招商银行 600036</div>
+                <div class="chip" onclick="loadSample('恒瑞医药', '600276')">恒瑞医药 600276</div>
+            </div>
+        </div>
+    </div>
+    <input id="landingFileInput" class="file-input" type="file" accept=".pdf,.doc,.docx,.txt,.xls,.xlsx">
+
+    <script>
+        const companyDB = [
+            { name: '贵州茅台', code: '600519', industry: '白酒', summary: '2024年营收1748亿元，净利润862亿元，毛利率92.8%' },
+            { name: '宁德时代', code: '300750', industry: '新能源电池', summary: '2024年营收2130亿元，净利润312亿元，毛利率25.8%' },
+            { name: '比亚迪', code: '002594', industry: '新能源汽车', summary: '2024年营收5128亿元，净利润276亿元，毛利率20.3%' },
+            { name: '中国平安', code: '601318', industry: '保险金融', summary: '2024年营收超过1万亿元，净利润超1000亿元' },
+            { name: '招商银行', code: '600036', industry: '银行', summary: '2024年营收超3000亿元，净利润超1000亿元' },
+            { name: '恒瑞医药', code: '600276', industry: '医药', summary: '2024年营收超400亿元，净利润超100亿元' },
+            { name: '隆基绿能', code: '601012', industry: '光伏', summary: '2024年营收超1000亿元，净利润超100亿元' },
+            { name: '海康威视', code: '002415', industry: '安防科技', summary: '2024年营收超800亿元，净利润超100亿元' },
+        ];
+
+        const searchInput = document.getElementById('landingSearchInput');
+        const searchHints = document.getElementById('searchHints');
+        const fileInput = document.getElementById('landingFileInput');
+        const actionPanel = document.getElementById('actionPanel');
+        const actionPanelTitle = document.getElementById('actionPanelTitle');
+        const uploadSection = document.getElementById('uploadSection');
+        const manualSection = document.getElementById('manualSection');
+        const actionManualText = document.getElementById('actionManualText');
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.trim().toLowerCase();
+            if (!query) {
+                searchHints.innerHTML = '';
+                return;
+            }
+            const matches = companyDB.filter(c => c.name.toLowerCase().includes(query) || c.code.includes(query));
+            if (matches.length === 0) {
+                searchHints.innerHTML = '<div class="hint">未找到匹配公司，可直接按照关键词进行分析或上传财报。</div>';
+                return;
+            }
+            searchHints.innerHTML = matches.map(c => `
+                <div class="suggest-item${c.name === '贵州茅台' ? ' highlight' : ''}" onclick="loadSample('${c.name}','${c.code}')">
+                    <div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">${c.name} (${c.code})</div>
+                        <div style="color: var(--text-muted); font-size: 14px;">${c.industry} · ${c.summary}</div>
+                    </div>
+                </div>
+            `).join('');
+        });
+
+        function loadSample(name, code) {
+            sessionStorage.setItem('reportSearchPayload', JSON.stringify({ type: 'company', name, code }));
+            window.location.href = '2.html';
+        }
+
+        function performSearch() {
+            const query = searchInput.value.trim();
+            if (!query) {
+                alert('请输入公司名称/股票代码');
+                return;
+            }
+            const matched = companyDB.find(c => c.name === query || c.code === query || c.name.includes(query) || c.code.includes(query));
+            if (matched) {
+                sessionStorage.setItem('reportSearchPayload', JSON.stringify({ type: 'company', name: matched.name, code: matched.code }));
+            } else {
+                sessionStorage.setItem('reportSearchPayload', JSON.stringify({ type: 'manualText', text: query }));
+            }
+            window.location.href = '2.html';
+        }
+
+        function toggleActionPanel(type) {
+            actionPanel.classList.add('show');
+            if (type === 'upload') {
+                actionPanelTitle.textContent = '上传财报文件';
+                uploadSection.style.display = 'block';
+                manualSection.style.display = 'none';
+            } else {
+                actionPanelTitle.textContent = '手动输入财报文本';
+                uploadSection.style.display = 'none';
+                manualSection.style.display = 'block';
+                actionManualText.focus();
+            }
+        }
+
+        function hideActionPanel() {
+            actionPanel.classList.remove('show');
+            actionManualText.value = '';
+        }
+
+        function submitActionManualText() {
+            const text = actionManualText.value.trim();
+            if (!text) {
+                alert('请输入财报文本');
+                return;
+            }
+            sessionStorage.setItem('reportSearchPayload', JSON.stringify({ type: 'manualText', text }));
+            window.location.href = '2.html';
+        }
+
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            sessionStorage.setItem('reportSearchPayload', JSON.stringify({ type: 'upload', fileName: file.name }));
+            window.location.href = '2.html';
+        });
+    </script>
+</body>
+</html>
