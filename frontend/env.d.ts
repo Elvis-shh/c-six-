@@ -1,2 +1,7 @@
-// env.d.ts — 环境变量类型声明
-// 占位文件，待实现
+/// <reference types="vite/client" />
+
+declare module '*.vue' {
+  import type { DefineComponent } from 'vue'
+  const component: DefineComponent<{}, {}, any>
+  export default component
+}

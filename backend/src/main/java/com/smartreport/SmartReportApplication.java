@@ -1,2 +1,12 @@
-// SmartReportApplication.java — Spring Boot 启动类
-// 占位文件，待实现
+package com.smartreport;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class SmartReportApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(SmartReportApplication.class, args);
+    }
+}

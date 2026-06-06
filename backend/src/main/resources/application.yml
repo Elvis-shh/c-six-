@@ -1,2 +1,71 @@
-# application.yml — Spring Boot 配置
-# 占位文件，待实现
+# application.yml — SmartReport Spring Boot 配置
+spring:
+  application:
+    name: smartreport-backend
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/smartreport?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USER:smartreport}
+    password: ${MYSQL_PASSWORD:smartreport123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: ${JPA_SHOW_SQL:false}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 3000ms
+
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+      force-request: true
+      force-response: true
+
+# MinIO
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: smartreport-uploads
+
+# AI 引擎
+ai-engine:
+  url: ${AI_ENGINE_URL:http://localhost:8000}
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET:SmartReport-JWT-Secret-Key-Must-Be-At-Least-256-Bits-Long}
+  access-token-expiration: 7200000
+  refresh-token-expiration: 604800000
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.smartreport: ${LOG_LEVEL:INFO}

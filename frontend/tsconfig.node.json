@@ -1,2 +1,10 @@
-// tsconfig.node.json — Node 端 TS 配置
-// 占位文件，待实现
+{
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["vite.config.ts"]
+}

@@ -1,2 +1,93 @@
-// styles/global.scss — 全局样式
-// 占位文件，待实现
+// ============================================================
+// SmartReport 全局样式
+// ============================================================
+
+:root {
+  --primary: #4f8cf7;
+  --primary-dark: #3b6fd4;
+  --primary-light: #e8f0fe;
+  --surface: #ffffff;
+  --surface-alt: #f8f9fb;
+  --border: #e2e6ee;
+  --border-light: #eef0f5;
+  --text: #1a1d2e;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --hover: #f0f4ff;
+  --skeleton-base: #e5e7eb;
+  --skeleton-shine: #f3f4f6;
+
+  --highlight-green: #22c55e;
+  --highlight-green-bg: #f0fdf4;
+  --risk-red: #ef4444;
+  --risk-red-bg: #fef2f2;
+  --warning-amber: #f59e0b;
+  --rating-excellent: #22c55e;
+  --rating-good: #3b82f6;
+  --rating-healthy: #22c55e;
+  --rating-warning: #f59e0b;
+  --rating-danger: #ef4444;
+
+  --radius: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  color: var(--text);
+  background: var(--surface-alt);
+  line-height: 1.6;
+}
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+input, textarea {
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+
+  &:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+  }
+}
+
+// Utility classes
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+}
+
