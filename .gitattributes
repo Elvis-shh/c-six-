@@ -1,0 +1,34 @@
+# .gitattributes — 统一行尾符规范
+# shell 脚本必须 LF，否则在 Docker/Linux 中无法执行
+*.sh text eol=lf
+
+# 代码文件统一 LF
+*.html text eol=lf
+*.css  text eol=lf
+*.scss text eol=lf
+*.js   text eol=lf
+*.ts   text eol=lf
+*.vue  text eol=lf
+*.java text eol=lf
+*.py   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.xml  text eol=lf
+*.sql  text eol=lf
+*.conf text eol=lf
+*.md   text eol=lf
+*.env.example text eol=lf
+Dockerfile     text eol=lf
+Dockerfile.*   text eol=lf
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+
+# 二进制文件不转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.jar  binary
+*.class binary
