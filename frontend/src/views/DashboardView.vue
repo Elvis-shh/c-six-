@@ -10,6 +10,9 @@ import IndicatorTable from '@/components/IndicatorTable.vue'
 import HighlightCards from '@/components/HighlightCards.vue'
 import RiskCards from '@/components/RiskCards.vue'
 import PredictChart from '@/components/PredictChart.vue'
+import ChatPanel from '@/components/ChatPanel.vue'
+import ChatToggle from '@/components/ChatToggle.vue'
+import FileUpload from '@/components/FileUpload.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import type { Ref } from 'vue'
@@ -42,9 +45,12 @@ computed(() => {
     <!-- 正常渲染 -->
     <template v-else-if="kpiData">
       <div class="dashboard-header">
-        <h1>{{ kpiData.company.name }}</h1>
-        <span class="header-code">{{ kpiData.company.code }}</span>
-        <span class="header-year">{{ kpiData.reportYear }} 年报</span>
+        <div>
+          <h1>{{ kpiData.company.name }}</h1>
+          <span class="header-code">{{ kpiData.company.code }}</span>
+          <span class="header-year">{{ kpiData.reportYear }} 年报</span>
+        </div>
+        <FileUpload class="header-upload" />
       </div>
 
       <!-- Story 3.1: KPI 卡片 -->
@@ -90,6 +96,9 @@ computed(() => {
         <h2>🔮 趋势预测</h2>
         <PredictChart :company-code="code" />
       </section>
+
+      <ChatToggle />
+      <ChatPanel :company-code="code" :company-name="kpiData.company.name" />
     </template>
   </div>
 </template>
@@ -103,8 +112,9 @@ computed(() => {
 
 .dashboard-header {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
   margin-bottom: 32px;
 }
 .dashboard-header h1 {
@@ -126,6 +136,9 @@ computed(() => {
   background: var(--primary-light, #eff6ff);
   padding: 2px 10px;
   border-radius: 4px;
+}
+.header-upload {
+  width: min(360px, 42vw);
 }
 
 .dashboard-section {
@@ -152,5 +165,15 @@ computed(() => {
 .hl-risk-col h2 {
   font-size: 18px;
   margin-bottom: 16px;
+}
+
+@media (max-width: 760px) {
+  .dashboard-header {
+    display: block;
+  }
+  .header-upload {
+    width: 100%;
+    margin-top: 16px;
+  }
 }
 </style>

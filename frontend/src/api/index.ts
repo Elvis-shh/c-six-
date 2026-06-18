@@ -1,6 +1,6 @@
 // api/index.ts — SmartReport API 请求层
 import axios from 'axios'
-import type { ApiResponse, Company, KpiResponse, TimelineResponse, BenchmarkResponse, HighlightItem, RiskItem, PredictResponse } from '@/types'
+import type { ApiResponse, Company, KpiResponse, TimelineResponse, BenchmarkResponse, HighlightItem, RiskItem, PredictResponse, UploadTaskResponse, UploadTaskStatus, ExtractedIndicator } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -50,5 +50,31 @@ export const getBenchmark = (companyCode: string, year?: number) =>
 export const getTerms = () =>
   api.get<ApiResponse<Record<string, string>>>('/terms')
 
-export default api
+// ============================================================
+// Phase 3: AI 问答与上传解析
+// ============================================================
+export const sendChatMessage = (payload: { companyCode: string; message: string; sessionId: string }) =>
+  fetch('/api/v1/chat/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
 
+export const uploadReport = (file: File, onUploadProgress?: (percent: number) => void) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post<ApiResponse<UploadTaskResponse>>('/upload/report', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: event => {
+      if (event.total && onUploadProgress) onUploadProgress(Math.round((event.loaded / event.total) * 100))
+    },
+  })
+}
+
+export const getUploadTask = (taskId: string) =>
+  api.get<ApiResponse<UploadTaskStatus>>(`/upload/tasks/${taskId}`)
+
+export const confirmExtraction = (taskId: string, payload: { companyCode: string; reportYear: number; data: Record<string, ExtractedIndicator> }) =>
+  api.post<ApiResponse<void>>(`/upload/tasks/${taskId}/confirm`, payload)
+
+export default api

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import SearchBox from '@/components/SearchBox.vue'
+import FileUpload from '@/components/FileUpload.vue'
 import { getHotCompanies } from '@/api'
 import type { Company } from '@/types'
 import { ref, onMounted } from 'vue'
 
 const router = useRouter()
 const hotList = ref<Company[]>([])
+const uploadTaskId = ref('')
 
 onMounted(async () => {
   const res = await getHotCompanies()
@@ -24,6 +26,10 @@ function selectChip(company: Company) {
       <h1 class="hero-title">📊 SmartReport</h1>
       <p class="hero-sub">智能财报研读助手 — 让财务数据一目了然</p>
       <SearchBox placeholder="搜索公司名称或股票代码，如「贵州茅台」" />
+      <div class="upload-entry">
+        <FileUpload @uploaded="uploadTaskId = $event" />
+        <p v-if="uploadTaskId" class="upload-task">解析任务已创建：{{ uploadTaskId }}</p>
+      </div>
     </div>
 
     <div class="hot-section">
@@ -70,6 +76,14 @@ function selectChip(company: Company) {
   font-size: 16px;
   color: var(--text-secondary);
   margin-bottom: 32px;
+}
+.upload-entry {
+  margin-top: 22px;
+}
+.upload-task {
+  margin-top: 10px;
+  color: var(--primary-dark);
+  font-size: 13px;
 }
 
 .hot-section {

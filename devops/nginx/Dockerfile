@@ -15,7 +15,8 @@ RUN if [ -n "${NPM_REGISTRY}" ]; then \
       npm config set registry ${NPM_REGISTRY}; \
     fi
 
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 COPY frontend/ .
 RUN npm run build
 

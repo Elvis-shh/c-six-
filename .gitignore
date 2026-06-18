@@ -10,6 +10,7 @@ target/
 # 环境
 .env
 .env.local
+devops/env/.env.example
 
 # IDE
 .idea/

@@ -110,6 +110,30 @@ export interface ChatMessage {
   refs?: { source: string; snippet: string; score: number }[]
 }
 
+export interface UploadTaskResponse {
+  taskId: string
+  status: string
+  fileName: string
+  message: string
+}
+
+export interface ExtractedIndicator {
+  value: number | null
+  unit: string
+  confidence: number
+  method: string
+  matchedText?: string
+}
+
+export interface UploadTaskStatus {
+  taskId: string
+  status: string
+  stage: string
+  message: string
+  percent: number
+  extractedData?: Record<string, ExtractedIndicator>
+}
+
 export interface IndicatorDetail {
   key: string
   name: string
@@ -126,4 +150,3 @@ export interface IndicatorDetail {
 export interface IndicatorDetailResponse {
   indicators: IndicatorDetail[]
 }
-
