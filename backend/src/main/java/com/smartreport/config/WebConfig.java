@@ -15,7 +15,7 @@ import java.io.IOException;
 @ServletComponentScan
 public class WebConfig {
 
-    @WebFilter(urlPatterns = "/*")
+    @WebFilter(urlPatterns = "/*", asyncSupported = true)
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public static class ForceUtf8Filter implements Filter {
         @Override
@@ -23,7 +23,6 @@ public class WebConfig {
                 throws IOException, ServletException {
             HttpServletResponse response = (HttpServletResponse) res;
             response.setCharacterEncoding("UTF-8");
-            response.setHeader("Content-Type", "application/json;charset=UTF-8");
             chain.doFilter(req, new ForceUtf8Wrapper(response));
         }
     }
@@ -35,6 +34,10 @@ public class WebConfig {
 
         @Override
         public void setContentType(String type) {
+            if (type != null && type.toLowerCase().contains("text/event-stream")) {
+                super.setContentType(type);
+                return;
+            }
             if (type != null && !type.toLowerCase().contains("charset")) {
                 super.setContentType(type + ";charset=UTF-8");
             } else {

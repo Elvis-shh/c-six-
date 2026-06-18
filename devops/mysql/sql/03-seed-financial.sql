@@ -204,3 +204,55 @@ INSERT IGNORE INTO financial_indicators (report_id, indicator_key, value, yoy_ch
 (8, 'debtRatio', 91.5, NULL, 'warning'),
 (8, 'cashFlow', 5500.00, 5.8, 'good'),
 (8, 'roe', 10.8, NULL, 'healthy');
+
+-- ============================================================
+-- 海康威视 002415 2020-2024 简化数据
+-- ============================================================
+INSERT IGNORE INTO financial_reports (id, company_code, report_type, report_year, source, status, published_at) VALUES
+(9, '002415', 'annual', 2020, 'system', 1, '2021-04-17'),
+(10, '002415', 'annual', 2021, 'system', 1, '2022-04-16'),
+(11, '002415', 'annual', 2022, 'system', 1, '2023-04-15'),
+(12, '002415', 'annual', 2023, 'system', 1, '2024-04-20'),
+(13, '002415', 'annual', 2024, 'system', 1, '2025-04-19');
+
+INSERT IGNORE INTO financial_indicators (report_id, indicator_key, value, yoy_change, rating) VALUES
+-- 2020
+(9, 'revenue', 635.03, 10.1, 'good'),
+(9, 'profit', 133.86, 7.8, 'good'),
+(9, 'grossMargin', 46.5, NULL, 'good'),
+(9, 'netMargin', 21.1, NULL, 'good'),
+(9, 'debtRatio', 38.2, NULL, 'healthy'),
+(9, 'cashFlow', 160.88, 12.4, 'excellent'),
+(9, 'roe', 27.3, NULL, 'excellent'),
+-- 2021
+(10, 'revenue', 814.20, 28.2, 'excellent'),
+(10, 'profit', 168.00, 25.5, 'excellent'),
+(10, 'grossMargin', 44.3, NULL, 'good'),
+(10, 'netMargin', 20.6, NULL, 'good'),
+(10, 'debtRatio', 39.5, NULL, 'healthy'),
+(10, 'cashFlow', 184.22, 14.5, 'excellent'),
+(10, 'roe', 28.8, NULL, 'excellent'),
+-- 2022
+(11, 'revenue', 831.66, 2.1, 'good'),
+(11, 'profit', 128.37, -23.6, 'warning'),
+(11, 'grossMargin', 42.3, NULL, 'good'),
+(11, 'netMargin', 15.4, NULL, 'healthy'),
+(11, 'debtRatio', 41.2, NULL, 'healthy'),
+(11, 'cashFlow', 118.00, -35.9, 'warning'),
+(11, 'roe', 19.2, NULL, 'good'),
+-- 2023
+(12, 'revenue', 893.40, 7.4, 'good'),
+(12, 'profit', 141.08, 9.9, 'good'),
+(12, 'grossMargin', 44.0, NULL, 'good'),
+(12, 'netMargin', 15.8, NULL, 'healthy'),
+(12, 'debtRatio', 40.5, NULL, 'healthy'),
+(12, 'cashFlow', 155.20, 31.5, 'excellent'),
+(12, 'roe', 20.1, NULL, 'excellent'),
+-- 2024
+(13, 'revenue', 924.50, 3.5, 'good'),
+(13, 'profit', 151.20, 7.2, 'good'),
+(13, 'grossMargin', 44.8, NULL, 'good'),
+(13, 'netMargin', 16.4, NULL, 'healthy'),
+(13, 'debtRatio', 39.8, NULL, 'healthy'),
+(13, 'cashFlow', 168.00, 8.2, 'excellent'),
+(13, 'roe', 20.8, NULL, 'excellent');

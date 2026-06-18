@@ -16,4 +16,6 @@ public interface FinancialReportRepository extends JpaRepository<FinancialReport
             String companyCode, Integer startYear, Integer endYear);
 
     List<FinancialReport> findByCompanyCodeOrderByReportYearDesc(String companyCode);
+
+    Optional<FinancialReport> findByCompanyCodeAndReportYearAndReportType(String companyCode, Integer reportYear, String reportType);
 }

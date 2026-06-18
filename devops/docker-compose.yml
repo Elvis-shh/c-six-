@@ -127,6 +127,8 @@ services:
       - "8000:8000"
     cpus: 0.30
     mem_limit: 512m
+    volumes:
+      - ai-reports:/app/data/reports
     networks:
       - smartreport-net
     healthcheck:
@@ -166,3 +168,4 @@ volumes:
   mysql-data:
   redis-data:
   logs:
+  ai-reports:
