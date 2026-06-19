@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import { marked } from 'marked'
+import { computed } from 'vue'
 import type { ChatMessage } from '@/types'
 
-defineProps<{ message: ChatMessage }>()
+const props = defineProps<{ message: ChatMessage }>()
+
+const html = computed(() => marked.parse(props.message.content || '...') as string)
 </script>
 
 <template>
   <div class="chat-message" :class="message.role">
     <div class="bubble">
-      <p>{{ message.content || '...' }}</p>
+      <div class="content markdown-body" v-html="html" />
       <div v-if="message.refs?.length" class="refs">
         <span v-for="ref in message.refs" :key="ref.source">{{ ref.source }}</span>
       </div>
@@ -27,7 +31,17 @@ defineProps<{ message: ChatMessage }>()
   border-radius: 14px;
   font-size: 14px;
   line-height: 1.6;
-  white-space: pre-wrap;
+}
+.content :deep(p) { margin: 0 0 8px; }
+.content :deep(p:last-child) { margin-bottom: 0; }
+.content :deep(strong) { font-weight: 700; }
+.content :deep(ul),
+.content :deep(ol) { margin: 6px 0 6px 18px; }
+.content :deep(code) {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.08);
+  font-family: Consolas, monospace;
 }
 .user .bubble {
   color: #fff;

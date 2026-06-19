@@ -21,7 +21,7 @@ class ReportFetchService:
             "label": "年报",
             "date_month_day": "01-01~12-31",
             "title_keywords": ["年度报告", "年报"],
-            "exclude": ["摘要", "英文", "取消"],
+            "exclude": ["英文", "取消"],
         },
         "quarter1": {
             "category": "category_yjdbg_szsh",
@@ -44,6 +44,10 @@ class ReportFetchService:
             "title_keywords": ["第三季度报告", "三季度报告"],
             "exclude": ["正文", "英文", "取消"],
         },
+    }
+
+    SEARCH_ALIASES = {
+        "601211": ["国泰君安", "国泰海通"],
     }
 
     async def fetch_report(self, company_code: str, year: int, report_type: str = "annual") -> dict:
@@ -128,13 +132,15 @@ class ReportFetchService:
         candidates = [item for item in announcements if self._is_target_report(item, year, report_type)]
         if not candidates:
             return None
-        return sorted(candidates, key=lambda item: item.get("announcementTime") or 0, reverse=True)[0]
+        return sorted(candidates, key=self._candidate_sort_key, reverse=True)[0]
 
     async def _query_candidate_announcements(self, payload: dict, company_code: str) -> list[dict]:
         attempts = []
         attempts.append({**payload})
         attempts.append({**payload, "column": "szse", "plate": "sz", "searchkey": company_code})
         attempts.append({**payload, "searchkey": "", "stock": f"{company_code},{self._org_id_guess(company_code)}"})
+        for alias in self.SEARCH_ALIASES.get(company_code, []):
+            attempts.append({**payload, "searchkey": alias, "stock": ""})
 
         seen = set()
         announcements = []
@@ -159,7 +165,17 @@ class ReportFetchService:
         report_config = self.REPORT_TYPES[report_type]
         if any(word in title for word in report_config["exclude"]):
             return False
-        return any(f"{year}年{keyword}" in title or f"{year} 年{keyword}" in title for keyword in report_config["title_keywords"])
+        return any(
+            f"{year}{keyword}" in title or f"{year}年{keyword}" in title or f"{year} 年{keyword}" in title
+            for keyword in report_config["title_keywords"]
+        )
+
+    def _candidate_sort_key(self, item: dict) -> tuple:
+        title = item.get("announcementTitle") or ""
+        return (
+            0 if "摘要" in title else 1,
+            item.get("announcementTime") or 0,
+        )
 
     def _market(self, company_code: str) -> dict:
         if company_code.startswith("6"):
@@ -172,7 +188,7 @@ class ReportFetchService:
 
     def _org_id_guess(self, company_code: str) -> str:
         if company_code.startswith("6"):
-            return f"gssh{company_code}"
+            return f"gssh{company_code.zfill(7)}"
         return f"gssz{company_code.zfill(7)}"
 
     def _headers(self) -> dict:

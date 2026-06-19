@@ -16,6 +16,8 @@ public interface FinancialIndicatorRepository extends JpaRepository<FinancialInd
 
     List<FinancialIndicator> findByReportIdIn(List<Long> reportIds);
 
+    void deleteByReportId(Long reportId);
+
     @Query("SELECT fi FROM FinancialIndicator fi JOIN FinancialReport fr ON fi.reportId = fr.id " +
            "WHERE fr.companyCode = :companyCode AND fi.indicatorKey = :key " +
            "ORDER BY fr.reportYear DESC")
