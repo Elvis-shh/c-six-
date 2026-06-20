@@ -27,8 +27,9 @@ public class ReportServiceImpl implements ReportService {
     private final FinancialIndicatorRepository indicatorRepository;
     private final IndicatorService indicatorService;
 
-    private static final List<String> DEFAULT_METRICS = List.of("revenue", "profit", "grossMargin", "debtRatio", "cashFlow");
-    private static final List<String> KPI_KEYS = List.of("revenue", "profit", "debtRatio", "cashFlow");
+    private static final int KPI_LIMIT = 4;
+    private static final int TIMELINE_LIMIT = 5;
+    private static final List<String> FIXED_CORE_KEYS = List.of("revenue", "profit", "grossMargin", "debtRatio", "cashFlow");
 
     @Override
     public KpiResponse getKpi(String companyCode) {
@@ -44,19 +45,24 @@ public class ReportServiceImpl implements ReportService {
         List<FinancialIndicator> prevIndicators = previous != null
                 ? indicatorRepository.findByReportId(previous.getId()) : List.of();
 
+        Map<String, BigDecimal> currentMap = toValueMap(indicators);
         Map<String, BigDecimal> prevMap = toValueMap(prevIndicators);
+        List<String> selectedKeys = selectFixedCoreKeys(List.of(latest), Map.of(latest.getId(), currentMap), KPI_LIMIT);
 
         List<KpiItem> kpis = new ArrayList<>();
-        for (FinancialIndicator fi : indicators) {
-            if (!KPI_KEYS.contains(fi.getIndicatorKey())) continue;
+        for (String key : selectedKeys) {
+            BigDecimal value = currentMap.get(key);
+            if (value == null) {
+                continue;
+            }
             BigDecimal yoy = indicatorService.calculateYoY(
-                    fi.getValue(), prevMap.get(fi.getIndicatorKey()));
-            String trend = indicatorService.determineTrend(fi.getIndicatorKey(), yoy);
+                    value, prevMap.get(key));
+            String trend = indicatorService.determineTrend(key, yoy);
             kpis.add(KpiItem.builder()
-                    .key(fi.getIndicatorKey())
-                    .name(indicatorService.getName(fi.getIndicatorKey()))
-                    .value(fi.getValue())
-                    .unit(indicatorService.getUnit(fi.getIndicatorKey()))
+                    .key(key)
+                    .name(indicatorService.getName(key))
+                    .value(value)
+                    .unit(indicatorService.getUnit(key))
                     .yoy(yoy)
                     .trend(trend)
                     .build());
@@ -72,12 +78,10 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public TimelineResponse getTimeline(String companyCode, List<String> metricKeys) {
-        if (metricKeys == null || metricKeys.isEmpty()) {
-            metricKeys = DEFAULT_METRICS;
+        List<FinancialReport> reports = findRecentReportsWithIndicators(companyCode, TIMELINE_LIMIT);
+        if (reports.isEmpty()) {
+            return TimelineResponse.builder().years(List.of()).metrics(List.of()).build();
         }
-
-        List<FinancialReport> reports = reportRepository
-                .findByCompanyCodeAndReportYearBetweenOrderByReportYearAsc(companyCode, 2020, 2024);
 
         List<String> years = reports.stream()
                 .map(r -> String.valueOf(r.getReportYear())).toList();
@@ -89,6 +93,15 @@ public class ReportServiceImpl implements ReportService {
         for (FinancialIndicator fi : allIndicators) {
             dataMap.computeIfAbsent(fi.getReportId(), k -> new HashMap<>())
                     .put(fi.getIndicatorKey(), fi.getValue());
+        }
+
+        if (metricKeys == null || metricKeys.isEmpty()) {
+            metricKeys = selectFixedCoreKeys(reports, dataMap, TIMELINE_LIMIT);
+        } else {
+            List<String> requested = metricKeys.stream()
+                    .filter(key -> hasMetric(dataMap, reports, key))
+                    .toList();
+            metricKeys = requested.isEmpty() ? selectFixedCoreKeys(reports, dataMap, TIMELINE_LIMIT) : requested;
         }
 
         List<TimelineResponse.MetricSeries> series = new ArrayList<>();
@@ -112,14 +125,14 @@ public class ReportServiceImpl implements ReportService {
     }
 
     private FinancialReport findPreviousReport(String companyCode, int currentYear) {
-        List<FinancialReport> reports = reportRepository.findActiveByCompanyCodeOrderForDisplay(companyCode);
+        List<FinancialReport> reports = findReportsWithIndicators(companyCode);
         return reports.stream()
                 .filter(r -> r.getReportYear() < currentYear)
                 .findFirst().orElse(null);
     }
 
     private Optional<FinancialReport> findBestReport(String companyCode) {
-        return reportRepository.findActiveByCompanyCodeOrderForDisplay(companyCode).stream().findFirst();
+        return findReportsWithIndicators(companyCode).stream().findFirst();
     }
 
     private Map<String, BigDecimal> toValueMap(List<FinancialIndicator> indicators) {
@@ -128,6 +141,51 @@ public class ReportServiceImpl implements ReportService {
             map.put(fi.getIndicatorKey(), fi.getValue());
         }
         return map;
+    }
+
+    private List<FinancialReport> findReportsWithIndicators(String companyCode) {
+        return reportRepository.findByCompanyCodeOrderForDisplayIncludingParsed(companyCode).stream()
+                .filter(report -> !indicatorRepository.findByReportId(report.getId()).isEmpty())
+                .toList();
+    }
+
+    private List<FinancialReport> findRecentReportsWithIndicators(String companyCode, int limit) {
+        List<FinancialReport> reports = findReportsWithIndicators(companyCode).stream()
+                .limit(limit)
+                .toList();
+        List<FinancialReport> ascending = new ArrayList<>(reports);
+        ascending.sort(Comparator.comparing(FinancialReport::getReportYear));
+        return ascending;
+    }
+
+    private List<String> selectFixedCoreKeys(List<FinancialReport> reports,
+                                             Map<Long, Map<String, BigDecimal>> dataMap,
+                                             int limit) {
+        List<String> selected = FIXED_CORE_KEYS.stream()
+                .filter(key -> hasMetric(dataMap, reports, key))
+                .limit(limit)
+                .collect(Collectors.toCollection(ArrayList::new));
+        boolean hasAny = !selected.isEmpty();
+        if (!hasAny && !reports.isEmpty()) {
+            Long latestReportId = reports.get(reports.size() - 1).getId();
+            Map<String, BigDecimal> latestRow = dataMap.getOrDefault(latestReportId, Map.of());
+            latestRow.keySet().stream()
+                    .filter(key -> latestRow.get(key) != null)
+                    .findFirst()
+                    .ifPresent(selected::add);
+        }
+        return selected.stream().distinct().toList();
+    }
+
+    private boolean hasMetric(Map<Long, Map<String, BigDecimal>> dataMap,
+                              List<FinancialReport> reports,
+                              String key) {
+        return reports.stream()
+                .map(FinancialReport::getId)
+                .map(dataMap::get)
+                .filter(Objects::nonNull)
+                .map(row -> row.get(key))
+                .anyMatch(Objects::nonNull);
     }
 
     @Override

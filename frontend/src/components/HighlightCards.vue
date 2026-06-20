@@ -33,7 +33,7 @@ watch(() => props.companyCode, load, { immediate: true })
         </div>
       </div>
     </template>
-    <div v-else class="empty-text">暂无经营亮点数据</div>
+    <div v-else class="empty-text">系统暂未归纳出明确亮点，可结合核心指标和趋势图继续查看。</div>
   </div>
 </template>
 

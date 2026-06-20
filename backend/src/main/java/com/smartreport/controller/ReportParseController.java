@@ -6,6 +6,7 @@ import com.smartreport.models.dto.ParseDtos.ParseStartResponse;
 import com.smartreport.models.dto.ParseDtos.ParseStatusResponse;
 import com.smartreport.service.ReportParseService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,6 +33,12 @@ public class ReportParseController {
     @PostMapping("/quotes/import")
     public ApiResponse<ParseStartResponse> importQuotes(@RequestBody ParseStartRequest request) {
         return ApiResponse.accepted(reportParseService.importQuoteChunks(request));
+    }
+
+    @PostMapping("/{reportId}/reparse")
+    public ApiResponse<Void> reparse(@PathVariable Long reportId) {
+        reportParseService.reparse(reportId);
+        return ApiResponse.accepted(null);
     }
 
     @GetMapping("/status")

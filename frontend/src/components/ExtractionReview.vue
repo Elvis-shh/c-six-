@@ -19,7 +19,7 @@ watch(() => props.data, value => Object.assign(editable, JSON.parse(JSON.stringi
       <thead><tr><th>指标</th><th>值</th><th>单位</th><th>置信度</th></tr></thead>
       <tbody>
         <tr v-for="(item, key) in editable" :key="key" :class="{ warn: item.confidence < 0.8 }">
-          <td>{{ labels[key] || key }}</td>
+          <td>{{ labels[key] || item.matchedText || key }}</td>
           <td><input v-model.number="item.value" type="number" step="0.01"></td>
           <td>{{ item.unit }}</td>
           <td>{{ Math.round(item.confidence * 100) }}%</td>

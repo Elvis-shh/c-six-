@@ -20,7 +20,6 @@ class GenerateRequest(BaseModel):
 @router.post("/generate")
 async def generate(request: GenerateRequest):
     async def stream():
-        yield f"data: {json.dumps({'type': 'thinking', 'content': '正在分析财报上下文...'})}\n\n"
         async for token in llm_service.chat_stream(request.companyName, request.message, request.ragContext):
             yield f"data: {json.dumps({'type': 'token', 'content': token}, ensure_ascii=False)}\n\n"
         refs = [{

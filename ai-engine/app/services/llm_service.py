@@ -37,7 +37,6 @@ class LLMService:
             "stream": True,
         }
 
-        chunks: list[str] = []
         async with httpx.AsyncClient(timeout=45) as client:
             async with client.stream("POST", url, headers=headers, json=payload) as response:
                 response.raise_for_status()
@@ -54,11 +53,7 @@ class LLMService:
                     delta = chunk.get("choices", [{}])[0].get("delta", {})
                     content = delta.get("content")
                     if content:
-                        chunks.append(content)
-
-        sanitized = self._sanitize_answer("".join(chunks), contexts)
-        for char in sanitized:
-            yield char
+                        yield content
 
     def _build_messages(self, company_name: str, question: str, contexts: list[dict]) -> list[dict]:
         context_text = "\n\n".join(
@@ -78,6 +73,7 @@ class LLMService:
 {question}
 
 请基于参考数据回答。如果参考数据不足，请明确说明不足，不要编造具体财报数值。
+只有参考数据里明确出现过的数字才能写进答案；没有把握时，改用定性描述，不要硬给具体数字。
 """
         return [
             {"role": "system", "content": system_prompt},
@@ -93,24 +89,5 @@ class LLMService:
         elif "盈利" in question or "赚钱" in question:
             return f"DeepSeek 暂时不可用。\n\n**怎么看**：盈利能力先看收入、净利润和毛利率。\n\n**为什么**：收入像生意规模，净利润像最后留下的钱，毛利率像每单生意的赚钱空间。参考资料：{context_text}。"
         return f"DeepSeek 暂时不可用。\n\n**怎么看**：我会先按财报原文和行业常识回答你的问题。\n\n**为什么**：这样可以减少凭空猜测。参考资料：{context_text}。"
-
-    def _sanitize_answer(self, answer: str, contexts: list[dict]) -> str:
-        allowed_numbers = set()
-        for item in contexts:
-            for match in self._number_pattern().findall(item.get("content", "")):
-                allowed_numbers.add(match)
-
-        def replace_unverified(match):
-            token = match.group(0)
-            if token in allowed_numbers:
-                return token
-            return "[该数值缺少原文佐证]"
-
-        return self._number_pattern().sub(replace_unverified, answer)
-
-    def _number_pattern(self):
-        import re
-        return re.compile(r"(?<![A-Za-z])-?\d[\d,]*(?:\.\d+)?%?")
-
 
 llm_service = LLMService()

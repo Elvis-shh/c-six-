@@ -57,6 +57,14 @@ public class ReportParseServiceImpl implements ReportParseService {
         runPendingAsyncInternal(candidates);
     }
 
+    @Override
+    @Transactional
+    public void reparse(Long reportId) {
+        FinancialReport report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new IllegalArgumentException("报告不存在: " + reportId));
+        parseOne(report);
+    }
+
     private void runPendingAsyncInternal(List<FinancialReport> candidates) {
         for (FinancialReport report : candidates) {
             try {
@@ -104,6 +112,8 @@ public class ReportParseServiceImpl implements ReportParseService {
             reportRepository.save(report);
             return;
         }
+        report.setStatus(1);
+        reportRepository.save(report);
 
         List<FinancialIndicator> persisted = indicatorRepository.findByReportId(report.getId());
         Map<String, BigDecimal> valueMap = new LinkedHashMap<>();
@@ -180,10 +190,10 @@ public class ReportParseServiceImpl implements ReportParseService {
             return value >= -100 && value <= 100;
         }
         if ("revenue".equals(key) || "totalAssets".equals(key)) {
-            return value >= 1 && value <= 200000;
+            return value >= 1 && value <= 500000000;
         }
         if ("profit".equals(key) || "totalLiabilities".equals(key) || "cashFlow".equals(key)) {
-            return value >= -50000 && value <= 200000;
+            return value >= -500000000 && value <= 500000000;
         }
         return value > 0;
     }

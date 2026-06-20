@@ -1,8 +1,11 @@
 package com.smartreport.service;
 
 import com.smartreport.models.entity.FinancialIndicator;
+import com.smartreport.models.entity.IndicatorDefinition;
 import com.smartreport.models.entity.FinancialReport;
+import com.smartreport.repository.CompanyRepository;
 import com.smartreport.repository.FinancialIndicatorRepository;
+import com.smartreport.repository.IndicatorDefinitionRepository;
 import com.smartreport.repository.FinancialReportRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,22 +21,33 @@ public class PredictService {
 
     private final FinancialReportRepository reportRepository;
     private final FinancialIndicatorRepository indicatorRepository;
+    private final IndicatorDefinitionRepository definitionRepository;
+    private final CompanyRepository companyRepository;
     private final IndicatorService indicatorService;
 
-    private static final List<String> PREDICT_METRICS = List.of("revenue", "profit");
     private static final int HISTORY_YEARS = 5;
     private static final int PREDICT_YEARS = 2;
+    private static final int PREDICT_METRIC_LIMIT = 3;
+    private static final List<String> BANK_PRIORITY_KEYS = List.of("revenue", "profit", "debtRatio", "cashFlow", "totalAssets", "totalLiabilities", "netMargin", "roe");
 
     public Map<String, Object> predict(String companyCode) {
         List<FinancialReport> reports = reportRepository
-                .findByCompanyCodeOrderByReportYearDesc(companyCode);
+                .findActiveByCompanyCodeOrderForDisplay(companyCode);
 
         // Take last 5 years
         List<FinancialReport> recent = reports.stream()
-                .sorted(Comparator.comparing(FinancialReport::getReportYear).reversed())
+                .filter(report -> !indicatorRepository.findByReportId(report.getId()).isEmpty())
                 .limit(HISTORY_YEARS)
                 .sorted(Comparator.comparing(FinancialReport::getReportYear))
                 .collect(Collectors.toList());
+
+        if (recent.size() < 3) {
+            Map<String, Object> empty = new LinkedHashMap<>();
+            empty.put("years", List.of());
+            empty.put("series", List.of());
+            empty.put("insights", Map.of());
+            return empty;
+        }
 
         List<Long> reportIds = recent.stream().map(FinancialReport::getId).toList();
         List<FinancialIndicator> allIndicators = indicatorRepository.findByReportIdIn(reportIds);
@@ -48,7 +62,8 @@ public class PredictService {
                     .put(fi.getIndicatorKey(), fi.getValue());
         }
 
-        for (String metric : PREDICT_METRICS) {
+        List<String> metrics = selectPredictMetrics(companyCode, recent, byReport);
+        for (String metric : metrics) {
             List<BigDecimal> values = new ArrayList<>();
             for (FinancialReport r : recent) {
                 Map<String, BigDecimal> row = byReport.getOrDefault(r.getId(), Map.of());
@@ -74,9 +89,9 @@ public class PredictService {
 
         Map<String, Object> insights = new LinkedHashMap<>();
 
-        for (String metric : PREDICT_METRICS) {
+        for (String metric : metrics) {
             List<BigDecimal> vals = data.get(metric);
-            if (vals == null || vals.size() < 3) continue;
+            if (vals == null || vals.size() < 3 || vals.stream().anyMatch(Objects::isNull)) continue;
 
             // Linear regression: fit y = a*x + b where x = year index (1-based)
             double[] lr = linearRegression(vals);
@@ -149,6 +164,42 @@ public class PredictService {
         result.put("series", series);
         result.put("insights", insights);
         return result;
+    }
+
+    private List<String> selectPredictMetrics(String companyCode,
+                                              List<FinancialReport> reports,
+                                              Map<Long, Map<String, BigDecimal>> byReport) {
+        List<IndicatorDefinition> definitions = definitionRepository.findAllByOrderBySortOrderAsc();
+        Map<String, Integer> industryPriority = buildIndustryPriority(companyCode);
+        return definitions.stream()
+                .sorted(Comparator.comparing(def -> industryPriority.getOrDefault(def.getKey(), 999)))
+                .map(IndicatorDefinition::getKey)
+                .filter(key -> hasCompleteHistory(reports, byReport, key))
+                .limit(PREDICT_METRIC_LIMIT)
+                .toList();
+    }
+
+    private boolean hasCompleteHistory(List<FinancialReport> reports,
+                                       Map<Long, Map<String, BigDecimal>> byReport,
+                                       String key) {
+        for (FinancialReport report : reports) {
+            Map<String, BigDecimal> row = byReport.getOrDefault(report.getId(), Map.of());
+            if (row.get(key) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Map<String, Integer> buildIndustryPriority(String companyCode) {
+        Map<String, Integer> priority = new HashMap<>();
+        String industry = companyRepository.findById(companyCode).map(c -> c.getIndustry()).orElse("");
+        if (industry.contains("银行")) {
+            for (int i = 0; i < BANK_PRIORITY_KEYS.size(); i++) {
+                priority.put(BANK_PRIORITY_KEYS.get(i), i);
+            }
+        }
+        return priority;
     }
 
     /**

@@ -125,7 +125,87 @@ public class AnalysisService {
                 results.add(item);
             }
         }
+        if (results.isEmpty()) {
+            return buildFallbackInsights(valMap, prevValMap, isHighlight);
+        }
         return results;
+    }
+
+    private List<Map<String, Object>> buildFallbackInsights(Map<String, BigDecimal> current,
+                                                            Map<String, BigDecimal> previous,
+                                                            boolean isHighlight) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        int id = 1;
+
+        if (current.containsKey("revenue")) {
+            BigDecimal yoy = calculateYoY(current.get("revenue"), previous.get("revenue"));
+            if (yoy != null && yoy.compareTo(BigDecimal.ZERO) > 0 == isHighlight) {
+                items.add(insight(id++, isHighlight ? "📈" : "⚠️",
+                        isHighlight ? "收入表现有支撑" : "收入增长承压",
+                        buildMetricDescription("营业总收入", current.get("revenue"), "亿", yoy)));
+            }
+        }
+        if (current.containsKey("profit")) {
+            BigDecimal yoy = calculateYoY(current.get("profit"), previous.get("profit"));
+            if (yoy != null && yoy.compareTo(BigDecimal.ZERO) > 0 == isHighlight) {
+                items.add(insight(id++, isHighlight ? "💹" : "⚠️",
+                        isHighlight ? "利润端延续改善" : "利润端出现压力",
+                        buildMetricDescription("归母净利润", current.get("profit"), "亿", yoy)));
+            }
+        }
+        if (current.containsKey("cashFlow")) {
+            BigDecimal yoy = calculateYoY(current.get("cashFlow"), previous.get("cashFlow"));
+            if (yoy != null && yoy.compareTo(BigDecimal.ZERO) > 0 == isHighlight) {
+                items.add(insight(id++, isHighlight ? "💵" : "⚠️",
+                        isHighlight ? "现金回笼情况较好" : "现金流波动需关注",
+                        buildMetricDescription("经营现金流", current.get("cashFlow"), "亿", yoy)));
+            }
+        }
+        if (current.containsKey("debtRatio")) {
+            BigDecimal value = current.get("debtRatio");
+            if (value != null) {
+                boolean good = value.compareTo(BigDecimal.valueOf(60)) < 0;
+                if (good == isHighlight) {
+                    items.add(insight(id++, isHighlight ? "⚖️" : "⚠️",
+                            isHighlight ? "资产负债结构较稳" : "资产负债率偏高",
+                            "当前资产负债率为 " + value.setScale(1, RoundingMode.HALF_UP).toPlainString() + "% 。"));
+                }
+            }
+        }
+        if (items.isEmpty()) {
+            items.add(insight(id,
+                    isHighlight ? "📌" : "🔎",
+                    isHighlight ? "财报披露了若干关键经营指标" : "当前财报可提取风险线索有限",
+                    isHighlight
+                            ? "系统已根据当前财报提取出核心财务指标，可结合趋势图与指标详解继续研判。"
+                            : "系统暂未命中明确规则，建议重点关注利润、现金流和负债相关指标变化。"));
+        }
+        return items;
+    }
+
+    private BigDecimal calculateYoY(BigDecimal current, BigDecimal previous) {
+        if (current == null || previous == null || previous.compareTo(BigDecimal.ZERO) == 0) {
+            return null;
+        }
+        return current.subtract(previous)
+                .divide(previous.abs(), 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100));
+    }
+
+    private String buildMetricDescription(String name, BigDecimal value, String unit, BigDecimal yoy) {
+        return name + "为 " + value.setScale(2, RoundingMode.HALF_UP).toPlainString() + unit
+                + "，同比 " + (yoy.compareTo(BigDecimal.ZERO) >= 0 ? "+" : "")
+                + yoy.setScale(1, RoundingMode.HALF_UP).toPlainString() + "% 。";
+    }
+
+    private Map<String, Object> insight(int id, String icon, String title, String description) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("id", id);
+        item.put("icon", icon);
+        item.put("title", title);
+        item.put("description", description);
+        item.put("ruleKey", "fallback");
+        return item;
     }
 
     private Map<String, Object> buildContext(Company company,

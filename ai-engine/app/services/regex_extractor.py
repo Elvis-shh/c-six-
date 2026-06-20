@@ -3,24 +3,26 @@ import re
 
 class RegexExtractor:
     INDICATOR_ALIASES = {
-        "revenue": ["营业收入", "营业总收入"],
-        "profit": ["归属于上市公司股东的净利润", "归母净利润"],
-        "totalAssets": ["资产总额", "资产总计", "总资产"],
-        "totalLiabilities": ["负债合计", "负债总额", "总负债"],
-        "cashFlow": ["经营活动产生的现金流量净额", "经营活动现金流量净额"],
+        "revenue": ["营业收入", "营业总收入", "營業收入", "營業總收入"],
+        "profit": ["归属于上市公司股东的净利润", "归属于母公司股东的净利润", "归母净利润", "歸屬於上市公司股東的淨利潤", "歸屬於母公司股東的淨利潤"],
+        "totalAssets": ["资产总额", "资产总计", "总资产", "資產總額", "資產總計", "總資產"],
+        "totalLiabilities": ["负债合计", "负债总额", "总负债", "負債合計", "負債總額", "總負債"],
+        "cashFlow": ["经营活动产生的现金流量净额", "经营活动现金流量净额", "經營活動產生的現金流量淨額", "經營活動現金流量淨額"],
     }
 
     MULTILINE_ALIASES = {
-        "profit": [["归属于上市公司股东", "的净利润"]],
-        "cashFlow": [["经营活动产生的现金", "流量净额"]],
+        "profit": [["归属于上市公司股东", "的净利润"], ["归属于母公司股东", "的净利润"], ["歸屬於上市公司股東", "的淨利潤"], ["歸屬於母公司股東", "的淨利潤"]],
+        "cashFlow": [["经营活动产生的现金", "流量净额"], ["經營活動產生的現金", "流量淨額"]],
     }
 
+    FINANCIAL_DATA_HINTS = ["财务数据", "财务指标", "全年经营成果", "財務數據", "財務指標", "全年經營成果"]
+
     PATTERNS = {
-        "revenue": [r"营业(?:总)?收入[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?"],
-        "profit": [r"归属于上市公司股东的净利润[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?", r"(?:归母)?净利润[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?"],
-        "totalAssets": [r"(?:总资产|资产总计)[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?"],
-        "totalLiabilities": [r"(?:总负债|负债合计)[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?"],
-        "cashFlow": [r"经营活动产生的现金流量净额[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?", r"经营.*现金流[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?"],
+        "revenue": [r"[营业營業](?:总|總)?收入[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?"],
+        "profit": [r"[归歸]属?于(?:上市公司|母公司)股东的[净淨]利润[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?", r"(?:归母|歸母)?[净淨]利润[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?"],
+        "totalAssets": [r"(?:总资产|總資產|资产总计|資產總計)[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?"],
+        "totalLiabilities": [r"(?:总负债|總負債|负债合计|負債合計)[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?"],
+        "cashFlow": [r"[经营經營]活动产生的现金流量[净淨]额[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?", r"[经营經營].*现金流[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?"],
         "grossMargin": [r"毛利率[：:\s\n]*([\d,]+\.?\d*)\s*%"],
     }
 
@@ -38,9 +40,9 @@ class RegexExtractor:
                 value = float(match.group(1).replace(",", ""))
                 unit = "%" if key == "grossMargin" else "亿"
                 raw_unit = match.group(2) if len(match.groups()) > 1 else None
-                if raw_unit == "万元":
+                if raw_unit in {"万元", "萬元"}:
                     value = value / 10000
-                elif raw_unit == "万亿":
+                elif raw_unit in {"万亿", "萬億"}:
                     value = value * 10000
                 elif raw_unit == "元" or (raw_unit is None and key != "grossMargin" and value > 1000000):
                     value = value / 100000000
@@ -93,6 +95,8 @@ class RegexExtractor:
                     value = self._extract_first_main_value(block_lines, alias_line_count)
                     if value is None:
                         continue
+                    if value < 1000 and key != "grossMargin":
+                        continue
                     value = self._normalize_statement_value(value, page_text)
                     if value <= 0:
                         continue
@@ -110,6 +114,8 @@ class RegexExtractor:
                         continue
                     value = self._extract_first_main_value(block_lines, alias_line_count)
                     if value is None:
+                        continue
+                    if value < 1000 and key != "grossMargin":
                         continue
                     value = self._normalize_statement_value(value, page_text)
                     if value <= 0:
@@ -129,10 +135,16 @@ class RegexExtractor:
         score = 0
         if "主要会计数据和财务指标" in page_text:
             score += 15
+        if any(hint in page_text for hint in self.FINANCIAL_DATA_HINTS):
+            score += 18
+        if "分季度财务数据" in page_text:
+            score -= 12
         if key in {"revenue", "profit", "cashFlow"} and "合并利润表" in page_text:
             score += 12
         if key in {"totalAssets", "totalLiabilities"} and "合并资产负债表" in page_text:
             score += 14
+        if key in {"revenue", "profit", "cashFlow", "totalAssets", "totalLiabilities"} and "人民币百万元" in page_text:
+            score += 10
         if key in {"totalAssets", "totalLiabilities"} and "资产总计" in page_text and "所有者权益" in page_text:
             score += 12
         if key == "totalLiabilities" and "流动负债" in page_text and "非流动负债" in page_text and "负债合计" in page_text:
@@ -188,6 +200,8 @@ class RegexExtractor:
             for token in numbers:
                 if re.fullmatch(r"20\d{2}", token):
                     continue
+                if len(token.replace(',', '')) <= 2:
+                    continue
                 return float(token.replace(',', ''))
         return None
 
@@ -196,12 +210,16 @@ class RegexExtractor:
         return any(keyword in context for keyword in keywords)
 
     def _normalize_statement_value(self, value: float, context: str) -> float:
-        recent_context = re.sub(r"\s+", "", context[-800:])
-        if "千元" in recent_context:
+        compact_context = re.sub(r"\s+", "", context)
+        if "万亿" in compact_context or "萬億" in compact_context:
+            return value * 10000
+        if "百万元" in compact_context or "百萬元" in compact_context:
+            return value / 100
+        if "千元" in compact_context:
             return value / 100000
-        if "万元" in recent_context:
+        if "万元" in compact_context or "萬元" in compact_context:
             return value / 10000
-        if "单位：元" in recent_context or "单位:元" in recent_context or "（元）" in recent_context:
+        if "单位：元" in compact_context or "單位：元" in compact_context or "单位:元" in compact_context or "單位:元" in compact_context or "（元）" in compact_context:
             return value / 100000000
         # Statement continuation pages often omit the unit; for A-share annual reports
         # large table values almost always continue the prior page's "万元" convention.
@@ -213,9 +231,13 @@ class RegexExtractor:
 
     def _is_excluded_candidate(self, key: str, block: str) -> bool:
         compact = re.sub(r"\s+", "", block)
-        if key == "profit" and "扣除非经常性损益" in compact:
+        if any(marker in compact for marker in ["合并财务报表", "财务报表附注", "重要会计政策", "直接相关项目金额", "子公司指由本集团控制"]):
             return True
-        if key == "totalLiabilities" and (compact.startswith("流动负债合计") or compact.startswith("非流动负债合计")):
+        if key == "profit" and (compact.startswith("扣除非经常性损益") or "扣除非经常性损益后的净利润" in compact or "扣除非經常性損益後的淨利潤" in compact):
+            return True
+        if key == "totalLiabilities" and (compact.startswith("流动负债合计") or compact.startswith("非流动负债合计") or compact.startswith("流動負債合計") or compact.startswith("非流動負債合計")):
+            return True
+        if key == "totalLiabilities" and "所有者权益" in compact[:40]:
             return True
         return False
 

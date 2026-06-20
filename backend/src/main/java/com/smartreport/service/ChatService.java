@@ -8,13 +8,16 @@ import com.smartreport.models.entity.ReportQuoteChunk;
 import com.smartreport.repository.CompanyRepository;
 import com.smartreport.repository.ReportQuoteChunkRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -26,16 +29,16 @@ public class ChatService {
     private final ObjectMapper objectMapper;
 
     public SseEmitter sendMessage(String companyCode, String message, String sessionId) {
-        SseEmitter emitter = new SseEmitter(60_000L);
+        SseEmitter emitter = new SseEmitter(180_000L);
         CompletableFuture.runAsync(() -> streamAnswer(companyCode, message, emitter));
         return emitter;
     }
 
     private void streamAnswer(String companyCode, String message, SseEmitter emitter) {
         try {
+            sendJson(emitter, "thinking", "正在检索财报上下文...");
             Company company = companyRepository.findById(companyCode).orElse(null);
             List<RagContext> contexts = searchContexts(message, companyCode);
-            sendJson(emitter, "thinking", "正在检索财报上下文...");
 
             GenerateRequest request = GenerateRequest.builder()
                     .companyCode(companyCode)
@@ -84,16 +87,22 @@ public class ChatService {
         if (tokens.isEmpty()) {
             return List.of();
         }
+        Map<Long, ReportQuoteChunk> chunkMap = new LinkedHashMap<>();
+        for (String token : tokens) {
+            for (ReportQuoteChunk chunk : quoteChunkRepository.searchForRag(companyCode, token, PageRequest.of(0, topK * 3))) {
+                chunkMap.putIfAbsent(chunk.getId(), chunk);
+            }
+        }
+        if (chunkMap.isEmpty()) {
+            return List.of();
+        }
         List<RagContext> results = new ArrayList<>();
-        for (ReportQuoteChunk chunk : quoteChunkRepository.findByCompanyCodeForRag(companyCode)) {
+        for (ReportQuoteChunk chunk : chunkMap.values()) {
             int hits = 0;
             for (String token : tokens) {
                 if (chunk.getContent().contains(token)) {
                     hits++;
                 }
-            }
-            if (hits == 0) {
-                continue;
             }
             double score = Math.min(0.99, 0.55 + hits * 0.12);
             results.add(RagContext.builder()
@@ -112,10 +121,25 @@ public class ChatService {
 
     private List<String> extractTokens(String message) {
         List<String> tokens = new ArrayList<>();
-        for (String token : List.of("现金流", "经营活动产生的现金流量净额", "营业收入", "营业总收入", "净利润", "归属于上市公司股东的净利润", "资产总额", "资产总计", "负债合计", "负债总额", "毛利率", "风险", "负债")) {
+        for (String token : List.of("现金流", "经营活动产生的现金流量净额", "营业收入", "营业总收入", "净利润", "归属于上市公司股东的净利润", "资产总额", "资产总计", "负债合计", "负债总额", "毛利率", "风险", "负债", "盈利", "赚钱", "利润", "营收", "收入", "应收账款", "研发", "研发投入")) {
             if (message.contains(token)) {
                 tokens.add(token);
             }
+        }
+        if (message.contains("盈利") || message.contains("赚钱") || message.contains("利润")) {
+            tokens.add("净利润");
+            tokens.add("归属于上市公司股东的净利润");
+            tokens.add("毛利率");
+        }
+        if (message.contains("营收") || message.contains("收入")) {
+            tokens.add("营业收入");
+            tokens.add("营业总收入");
+        }
+        if (message.contains("现金流")) {
+            tokens.add("经营活动产生的现金流量净额");
+        }
+        if (message.contains("研发")) {
+            tokens.add("研发投入");
         }
         return tokens;
     }

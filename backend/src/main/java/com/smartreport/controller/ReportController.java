@@ -29,8 +29,10 @@ public class ReportController {
     @GetMapping("/reports/{companyCode}/timeline")
     public ApiResponse<TimelineResponse> getTimeline(
             @PathVariable String companyCode,
-            @RequestParam(defaultValue = "revenue,profit,grossMargin,debtRatio,cashFlow") String metrics) {
-        List<String> metricKeys = Arrays.asList(metrics.split(","));
+            @RequestParam(required = false) String metrics) {
+        List<String> metricKeys = metrics == null || metrics.isBlank()
+                ? List.of()
+                : Arrays.stream(metrics.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
         return ApiResponse.success(reportService.getTimeline(companyCode, metricKeys));
     }
 

@@ -33,7 +33,7 @@ watch(() => props.companyCode, load, { immediate: true })
         </div>
       </div>
     </template>
-    <div v-else class="safe-text">✅ 未发现明显风险项</div>
+    <div v-else class="safe-text">系统暂未识别出明确风险项，建议继续关注现金流、利润和负债变化。</div>
   </div>
 </template>
 
