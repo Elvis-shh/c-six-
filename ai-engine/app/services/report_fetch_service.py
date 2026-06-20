@@ -122,6 +122,8 @@ class ReportFetchService:
                     "source": path.name,
                     "content": text[:4000],
                 })
+        if not chunks:
+            raise ValueError(f"财报文件无可用正文: {file_path}")
         return chunks
 
     async def _find_report(self, company_code: str, year: int, report_type: str) -> dict | None:

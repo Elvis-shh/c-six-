@@ -10,6 +10,11 @@ class RegexExtractor:
         "cashFlow": ["经营活动产生的现金流量净额", "经营活动现金流量净额"],
     }
 
+    MULTILINE_ALIASES = {
+        "profit": [["归属于上市公司股东", "的净利润"]],
+        "cashFlow": [["经营活动产生的现金", "流量净额"]],
+    }
+
     PATTERNS = {
         "revenue": [r"营业(?:总)?收入[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?"],
         "profit": [r"归属于上市公司股东的净利润[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?", r"(?:归母)?净利润[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|亿元|万元|元)?"],
@@ -83,6 +88,8 @@ class RegexExtractor:
                         continue
                     block_lines = lines[index:index + max(alias_line_count + 4, 5)]
                     block = " ".join(block_lines)
+                    if self._is_excluded_candidate(key, block):
+                        continue
                     value = self._extract_first_main_value(block_lines, alias_line_count)
                     if value is None:
                         continue
@@ -90,6 +97,24 @@ class RegexExtractor:
                     if value <= 0:
                         continue
                     candidate = (page_score, value, block)
+                    if best is None or candidate[0] > best[0]:
+                        best = candidate
+            for alias_group in self.MULTILINE_ALIASES.get(key, []):
+                for index in range(len(lines)):
+                    matched, alias_line_count = self._match_multiline_alias(lines, index, alias_group)
+                    if not matched:
+                        continue
+                    block_lines = lines[index:index + max(alias_line_count + 4, 5)]
+                    block = " ".join(block_lines)
+                    if self._is_excluded_candidate(key, block):
+                        continue
+                    value = self._extract_first_main_value(block_lines, alias_line_count)
+                    if value is None:
+                        continue
+                    value = self._normalize_statement_value(value, page_text)
+                    if value <= 0:
+                        continue
+                    candidate = (page_score + 2, value, block)
                     if best is None or candidate[0] > best[0]:
                         best = candidate
         if best is None:
@@ -108,6 +133,12 @@ class RegexExtractor:
             score += 12
         if key in {"totalAssets", "totalLiabilities"} and "合并资产负债表" in page_text:
             score += 14
+        if key in {"totalAssets", "totalLiabilities"} and "资产总计" in page_text and "所有者权益" in page_text:
+            score += 12
+        if key == "totalLiabilities" and "流动负债" in page_text and "非流动负债" in page_text and "负债合计" in page_text:
+            score += 10
+        if key == "totalLiabilities" and "负债合计" in page_text and "所有者权益" in page_text:
+            score += 10
         if key == "cashFlow" and ("现金流量表" in page_text or "5、现金流" in page_text):
             score += 12
         if "项目" in page_text and "2025 年" in page_text:
@@ -140,6 +171,14 @@ class RegexExtractor:
                 return True, span
         return False, 0
 
+    def _match_multiline_alias(self, lines: list[str], index: int, alias_group: list[str]) -> tuple[bool, int]:
+        if index + len(alias_group) > len(lines):
+            return False, 0
+        for offset, alias_part in enumerate(alias_group):
+            if alias_part not in lines[index + offset]:
+                return False, 0
+        return True, len(alias_group)
+
     def _extract_first_main_value(self, block_lines: list[str], alias_line_count: int) -> float | None:
         relevant_lines = block_lines[alias_line_count:]
         for line in relevant_lines:
@@ -157,18 +196,28 @@ class RegexExtractor:
         return any(keyword in context for keyword in keywords)
 
     def _normalize_statement_value(self, value: float, context: str) -> float:
-        recent_context = context[-300:]
-        if "单位：万元" in recent_context or "单位:万元" in recent_context:
+        recent_context = re.sub(r"\s+", "", context[-800:])
+        if "千元" in recent_context:
+            return value / 100000
+        if "万元" in recent_context:
             return value / 10000
-        if "单位：千元" in recent_context or "单位:千元" in recent_context:
-            return value / 100000
-        if "单位：元" in recent_context or "单位:元" in recent_context:
+        if "单位：元" in recent_context or "单位:元" in recent_context or "（元）" in recent_context:
             return value / 100000000
+        # Statement continuation pages often omit the unit; for A-share annual reports
+        # large table values almost always continue the prior page's "万元" convention.
         if value > 1000000:
-            return value / 100000
+            return value / 10000
         if value > 10000:
             return value / 10000
         return value
+
+    def _is_excluded_candidate(self, key: str, block: str) -> bool:
+        compact = re.sub(r"\s+", "", block)
+        if key == "profit" and "扣除非经常性损益" in compact:
+            return True
+        if key == "totalLiabilities" and (compact.startswith("流动负债合计") or compact.startswith("非流动负债合计")):
+            return True
+        return False
 
 
 regex_extractor = RegexExtractor()

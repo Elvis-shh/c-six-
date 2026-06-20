@@ -162,7 +162,7 @@ public class ReportParseServiceImpl implements ReportParseService {
         if (limit == null || limit <= 0) {
             return fallback;
         }
-        return Math.min(limit, 200);
+        return Math.min(limit, 300);
     }
 
     private boolean isUsableIndicator(String key, AiExtractedIndicator indicator) {
