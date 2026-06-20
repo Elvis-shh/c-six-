@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS report_crawl_tasks (
     company_code VARCHAR(10) NOT NULL COMMENT '股票代码',
     report_year INT NOT NULL COMMENT '报告年份',
     report_type VARCHAR(30) NOT NULL COMMENT 'annual/quarter1/semi_annual/quarter3',
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/processing/completed/failed',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/processing/completed/failed/skipped',
     announcement_title VARCHAR(255),
     source_url VARCHAR(500),
     file_path VARCHAR(500),

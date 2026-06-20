@@ -8,7 +8,14 @@ class IndexService:
 
     async def get_csi300_constituents(self) -> list[dict]:
         try:
-            return await self._get_from_csindex_file()
+            rows = await self._get_from_csindex_file()
+            try:
+                listing_dates = {item["code"]: item.get("listingDate") for item in await self._get_from_eastmoney()}
+                for row in rows:
+                    row["listingDate"] = listing_dates.get(row["code"])
+            except Exception:
+                pass
+            return rows
         except Exception:
             return await self._get_from_eastmoney()
 
@@ -53,7 +60,7 @@ class IndexService:
             "invt": 2,
             "fid": "f3",
             "fs": "b:BK0500",
-            "fields": "f12,f14,f13,f100",
+            "fields": "f12,f14,f13,f100,f26",
         }
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36",
@@ -75,6 +82,7 @@ class IndexService:
                 "code": code,
                 "name": name,
                 "market": self._market(code),
+                "listingDate": self._format_listing_date(row.get("f26")),
                 "source": "eastmoney:BK0500",
             })
         if len(constituents) < 250:
@@ -101,6 +109,12 @@ class IndexService:
         if code.startswith(("0", "2", "3")):
             return "SZ"
         return "SZ"
+
+    def _format_listing_date(self, value) -> str | None:
+        text = str(value or "").strip()
+        if len(text) != 8 or text == "0":
+            return None
+        return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
 
 
 index_service = IndexService()

@@ -107,7 +107,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: number
-  refs?: { source: string; snippet: string; score: number }[]
+  refs?: { source: string; snippet?: string; content?: string; score: number; page?: number }[]
+  followUps?: string[]
 }
 
 export interface UploadTaskResponse {

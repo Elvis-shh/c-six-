@@ -8,7 +8,12 @@ const companyCodeRef = computed(() => props.companyCode) as Ref<string>
 const { store, sendMessage } = useChat(companyCodeRef)
 const input = ref('')
 const messagesEl = ref<HTMLElement | null>(null)
-const suggestions = ['盈利能力怎么样？', '有什么风险？', '现金流健康吗？']
+const suggestions = [
+  '这家公司像一家店，赚钱能力怎么样？',
+  '它真正收回来的钱够不够？',
+  '和同行比，最大的风险是什么？',
+  '这份年报里最值得看的三件事是什么？'
+]
 
 watch(() => store.messages.length, async () => {
   await nextTick()
@@ -35,10 +40,14 @@ async function submit(text = input.value) {
       <div ref="messagesEl" class="chat-messages">
         <div v-if="store.messages.length === 0" class="welcome">
           <h3>可以直接问我财报问题</h3>
-          <p>我会结合当前公司数据、RAG 上下文和页面指标回答。</p>
+          <p>我会先查财报原文和行业常识，再用尽量好懂的话解释，并给出来源。</p>
           <button v-for="item in suggestions" :key="item" @click="submit(item)">{{ item }}</button>
         </div>
-        <ChatMessage v-for="msg in store.messages" :key="msg.timestamp" :message="msg" />
+        <div v-if="store.isLoading" class="progress-card">
+          <div class="progress-text">AI 正在整理财报内容 {{ store.progress }}%</div>
+          <div class="progress-track"><div class="progress-bar" :style="{ width: `${store.progress}%` }" /></div>
+        </div>
+        <ChatMessage v-for="msg in store.messages" :key="msg.timestamp" :message="msg" @followup="submit" />
       </div>
 
       <div class="chat-input">
@@ -50,6 +59,7 @@ async function submit(text = input.value) {
         />
         <button :disabled="!input.trim() || store.isLoading" @click="submit()">发送</button>
       </div>
+      <p class="disclaimer">仅供学习和辅助分析，不构成投资建议。</p>
     </aside>
   </Transition>
 </template>
@@ -91,6 +101,30 @@ async function submit(text = input.value) {
   overflow-y: auto;
   padding: 18px;
 }
+.progress-card {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.05), rgba(37, 99, 235, 0.02));
+}
+.progress-text {
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.progress-track {
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+}
+.progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), #7c3aed);
+  transition: width 0.25s ease;
+}
 .welcome {
   padding: 16px;
   border: 1px dashed var(--border);
@@ -128,6 +162,12 @@ async function submit(text = input.value) {
   background: var(--primary);
 }
 .chat-input button:disabled { opacity: 0.5; }
+.disclaimer {
+  margin: -4px 16px 12px;
+  color: var(--text-muted);
+  font-size: 11px;
+  opacity: 0.72;
+}
 .slide-enter-active, .slide-leave-active { transition: transform 0.25s ease; }
 .slide-enter-from, .slide-leave-to { transform: translateX(100%); }
 @media (max-width: 520px) {

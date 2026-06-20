@@ -16,6 +16,10 @@ class ParseReportRequest(BaseModel):
     filePath: str
 
 
+class ExtractQuotesRequest(BaseModel):
+    filePath: str
+
+
 @router.post("/fetch")
 async def fetch_report(request: FetchReportRequest):
     try:
@@ -29,6 +33,15 @@ async def fetch_report(request: FetchReportRequest):
 async def parse_report(request: ParseReportRequest):
     try:
         data = await report_fetch_service.parse_report_file(request.filePath)
+        return {"code": 0, "message": "success", "data": data}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/quotes")
+async def extract_quotes(request: ExtractQuotesRequest):
+    try:
+        data = await report_fetch_service.extract_quote_chunks(request.filePath)
         return {"code": 0, "message": "success", "data": data}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

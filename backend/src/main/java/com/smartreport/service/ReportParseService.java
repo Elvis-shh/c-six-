@@ -8,4 +8,5 @@ public interface ReportParseService {
     ParseStartResponse start(ParseStartRequest request);
     void runPendingAsync();
     ParseStatusResponse status();
+    ParseStartResponse importQuoteChunks(ParseStartRequest request);
 }

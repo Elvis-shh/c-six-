@@ -9,6 +9,8 @@ services:
     build:
       context: ./mysql
       dockerfile: Dockerfile
+      args:
+        MYSQL_IMAGE: ${MYSQL_IMAGE:-mysql:8.0}
     image: smartreport-mysql:local
     container_name: smartreport-mysql
     restart: always
@@ -128,7 +130,7 @@ services:
     cpus: 0.30
     mem_limit: 512m
     volumes:
-      - ai-reports:/app/data/reports
+      - ../downloads/reports_latest:/app/data/reports
     networks:
       - smartreport-net
     healthcheck:
@@ -168,4 +170,3 @@ volumes:
   mysql-data:
   redis-data:
   logs:
-  ai-reports:

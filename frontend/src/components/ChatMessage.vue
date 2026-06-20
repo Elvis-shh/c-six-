@@ -4,16 +4,54 @@ import { computed } from 'vue'
 import type { ChatMessage } from '@/types'
 
 const props = defineProps<{ message: ChatMessage }>()
+const emit = defineEmits<{ followup: [question: string] }>()
 
 const html = computed(() => marked.parse(props.message.content || '...') as string)
+
+function normalizeSource(source: string) {
+  return source
+    .replace(/_em_/g, '')
+    .replace(/\.pdf/gi, '')
+    .replace(/_+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const groupedRefs = computed(() => {
+  const groups = new Map<string, { source: string; pages: number[]; snippets: string[] }>()
+  for (const ref of props.message.refs || []) {
+    const source = normalizeSource(ref.source)
+    const existing = groups.get(source) || { source, pages: [], snippets: [] }
+    if (typeof ref.page === 'number' && !existing.pages.includes(ref.page)) {
+      existing.pages.push(ref.page)
+    }
+    const snippet = (ref.snippet || ref.content || '').trim()
+    if (snippet && !existing.snippets.includes(snippet)) {
+      existing.snippets.push(snippet)
+    }
+    groups.set(source, existing)
+  }
+  return [...groups.values()]
+})
 </script>
 
 <template>
   <div class="chat-message" :class="message.role">
     <div class="bubble">
       <div class="content markdown-body" v-html="html" />
-      <div v-if="message.refs?.length" class="refs">
-        <span v-for="ref in message.refs" :key="ref.source">{{ ref.source }}</span>
+      <div v-if="groupedRefs.length" class="refs">
+        <p class="refs-title">引用来源</p>
+        <details v-for="ref in groupedRefs" :key="ref.source" class="ref-item">
+          <summary>
+            {{ ref.source }}
+            <span v-if="ref.pages.length"> · 第{{ ref.pages.join('、') }}页</span>
+          </summary>
+          <p v-for="snippet in ref.snippets" :key="snippet">{{ snippet }}</p>
+        </details>
+      </div>
+      <div v-if="message.followUps?.length" class="followups">
+        <p class="followups-title">你还可以继续问</p>
+        <button v-for="item in message.followUps" :key="item" type="button" @click="emit('followup', item)">{{ item }}</button>
       </div>
     </div>
   </div>
@@ -54,16 +92,49 @@ const html = computed(() => marked.parse(props.message.content || '...') as stri
   border-bottom-left-radius: 4px;
 }
 .refs {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
   gap: 6px;
-  margin-top: 10px;
+  margin-top: 12px;
+  opacity: 0.88;
 }
-.refs span {
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: var(--primary-light);
-  color: var(--primary-dark);
+.refs-title {
+  margin: 0 0 2px;
+  color: var(--text-muted);
   font-size: 11px;
+}
+.ref-item {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.ref-item summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.ref-item p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.followups {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.followups-title {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.followups button {
+  padding: 8px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.06);
+  color: var(--primary-dark);
+  text-align: left;
 }
 </style>

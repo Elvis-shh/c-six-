@@ -35,8 +35,7 @@ public class ReportServiceImpl implements ReportService {
         Company company = companyRepository.findById(companyCode)
                 .orElseThrow(() -> new NoSuchElementException("Company not found: " + companyCode));
 
-        FinancialReport latest = reportRepository
-                .findTopByCompanyCodeAndStatusOrderByReportYearDesc(companyCode, 1)
+        FinancialReport latest = findBestReport(companyCode)
                 .orElseThrow(() -> new NoSuchElementException("No report for: " + companyCode));
 
         FinancialReport previous = findPreviousReport(companyCode, latest.getReportYear());
@@ -113,11 +112,14 @@ public class ReportServiceImpl implements ReportService {
     }
 
     private FinancialReport findPreviousReport(String companyCode, int currentYear) {
-        List<FinancialReport> reports = reportRepository
-                .findByCompanyCodeOrderByReportYearDesc(companyCode);
+        List<FinancialReport> reports = reportRepository.findActiveByCompanyCodeOrderForDisplay(companyCode);
         return reports.stream()
                 .filter(r -> r.getReportYear() < currentYear)
                 .findFirst().orElse(null);
+    }
+
+    private Optional<FinancialReport> findBestReport(String companyCode) {
+        return reportRepository.findActiveByCompanyCodeOrderForDisplay(companyCode).stream().findFirst();
     }
 
     private Map<String, BigDecimal> toValueMap(List<FinancialIndicator> indicators) {
@@ -130,8 +132,7 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public IndicatorDetailResponse getIndicators(String companyCode) {
-        FinancialReport latest = reportRepository
-                .findTopByCompanyCodeAndStatusOrderByReportYearDesc(companyCode, 1)
+        FinancialReport latest = findBestReport(companyCode)
                 .orElseThrow(() -> new NoSuchElementException("No report for: " + companyCode));
 
         FinancialReport previous = findPreviousReport(companyCode, latest.getReportYear());

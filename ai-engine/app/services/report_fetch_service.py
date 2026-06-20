@@ -106,6 +106,24 @@ class ReportFetchService:
             "extractedData": extracted,
         }
 
+    async def extract_quote_chunks(self, file_path: str) -> list[dict]:
+        path = Path(file_path)
+        if not path.exists() or not path.is_file():
+            raise ValueError(f"财报文件不存在: {file_path}")
+
+        chunks = []
+        with fitz.open(path) as doc:
+            for page_index, page in enumerate(doc):
+                text = self._clean_page_text(page.get_text())
+                if len(text) < 80:
+                    continue
+                chunks.append({
+                    "page": page_index + 1,
+                    "source": path.name,
+                    "content": text[:4000],
+                })
+        return chunks
+
     async def _find_report(self, company_code: str, year: int, report_type: str) -> dict | None:
         market = self._market(company_code)
         report_config = self.REPORT_TYPES[report_type]
@@ -202,6 +220,9 @@ class ReportFetchService:
         forbidden = '<>:"/\\|?*'
         safe = "".join("_" if char in forbidden else char for char in name)
         return safe[:180]
+
+    def _clean_page_text(self, text: str) -> str:
+        return " ".join((text or "").split()).strip()
 
     def _format_date(self, timestamp: int | None) -> str | None:
         if not timestamp:

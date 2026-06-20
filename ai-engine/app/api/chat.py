@@ -23,8 +23,13 @@ async def generate(request: GenerateRequest):
         yield f"data: {json.dumps({'type': 'thinking', 'content': '正在分析财报上下文...'})}\n\n"
         async for token in llm_service.chat_stream(request.companyName, request.message, request.ragContext):
             yield f"data: {json.dumps({'type': 'token', 'content': token}, ensure_ascii=False)}\n\n"
-        refs = [{"source": item.get("source"), "snippet": item.get("content", "")[:80], "score": item.get("score", 0)} for item in request.ragContext]
+        refs = [{
+            "source": item.get("source"),
+            "snippet": item.get("content", "")[:120],
+            "score": item.get("score", 0),
+            "page": item.get("page"),
+        } for item in request.ragContext]
         yield f"data: {json.dumps({'type': 'refs', 'refs': refs}, ensure_ascii=False)}\n\n"
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-    return StreamingResponse(stream(), media_type="text/event-stream")
+    return StreamingResponse(stream(), media_type="text/event-stream; charset=utf-8")

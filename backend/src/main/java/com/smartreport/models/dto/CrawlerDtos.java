@@ -88,6 +88,7 @@ public class CrawlerDtos {
         private String code;
         private String name;
         private String market;
+        private String listingDate;
         private String source;
     }
 }

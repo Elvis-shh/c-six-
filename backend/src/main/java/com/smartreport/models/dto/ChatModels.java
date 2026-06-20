@@ -18,6 +18,7 @@ public class ChatModels {
         private String content;
         private String source;
         private Double score;
+        private Integer page;
     }
 
     @Data

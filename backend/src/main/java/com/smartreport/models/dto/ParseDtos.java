@@ -62,6 +62,24 @@ public class ParseDtos {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class AiQuoteChunk {
+        private Integer page;
+        private String source;
+        private String content;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AiQuoteResponse {
+        private Integer code;
+        private String message;
+        private List<AiQuoteChunk> data;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class AiExtractedIndicator {
         private Double value;
         private String unit;

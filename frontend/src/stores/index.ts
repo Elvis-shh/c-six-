@@ -73,24 +73,33 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
   const isOpen = ref(false)
   const isLoading = ref(false)
+  const progress = ref(0)
   const sessionId = ref(globalThis.crypto?.randomUUID?.() || String(Date.now()))
 
   function addMessage(role: ChatMessage['role'], content: string) {
     messages.value.push({ role, content, timestamp: Date.now() })
   }
 
-  function updateLastAssistant(content: string, refs?: ChatMessage['refs']) {
+  function ensureAssistantMessage() {
+    const last = messages.value[messages.value.length - 1]
+    if (last?.role !== 'assistant') {
+      messages.value.push({ role: 'assistant', content: '', timestamp: Date.now() })
+    }
+  }
+
+  function updateLastAssistant(content: string, refs?: ChatMessage['refs'], followUps?: string[]) {
     const last = messages.value[messages.value.length - 1]
     if (last?.role === 'assistant') {
       last.content = content
       if (refs) last.refs = refs
+      if (followUps) last.followUps = followUps
     } else {
-      messages.value.push({ role: 'assistant', content, refs, timestamp: Date.now() })
+      messages.value.push({ role: 'assistant', content, refs, followUps, timestamp: Date.now() })
     }
   }
 
   function toggle() { isOpen.value = !isOpen.value }
   function close() { isOpen.value = false }
 
-  return { messages, isOpen, isLoading, sessionId, addMessage, updateLastAssistant, toggle, close }
+  return { messages, isOpen, isLoading, progress, sessionId, addMessage, ensureAssistantMessage, updateLastAssistant, toggle, close }
 })

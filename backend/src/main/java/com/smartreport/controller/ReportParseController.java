@@ -29,6 +29,11 @@ public class ReportParseController {
         return ApiResponse.accepted(null);
     }
 
+    @PostMapping("/quotes/import")
+    public ApiResponse<ParseStartResponse> importQuotes(@RequestBody ParseStartRequest request) {
+        return ApiResponse.accepted(reportParseService.importQuoteChunks(request));
+    }
+
     @GetMapping("/status")
     public ApiResponse<ParseStatusResponse> status() {
         return ApiResponse.success(reportParseService.status());

@@ -50,12 +50,18 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                         skipped++;
                         continue;
                     }
-                    taskRepository.save(ReportCrawlTask.builder()
+                    ReportCrawlTask task = ReportCrawlTask.builder()
                             .companyCode(company.getCode())
                             .reportYear(year)
                             .reportType(reportType)
                             .status("pending")
-                            .build());
+                            .build();
+                    if (isBeforeListingYear(company, year)) {
+                        task.setStatus("skipped");
+                        task.setErrorMsg("上市前年份，跳过抓取");
+                        task.setCompletedAt(LocalDateTime.now());
+                    }
+                    taskRepository.save(task);
                     created++;
                 }
             }
@@ -78,6 +84,10 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                         .industry("沪深300")
                         .status(1)
                         .build()));
+                if (company.getListingDate() == null && item.getListingDate() != null) {
+                    company.setListingDate(LocalDate.parse(item.getListingDate()));
+                    company = companyRepository.save(company);
+                }
                 companies.add(company);
             }
             return companies;
@@ -103,7 +113,7 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
     @Override
     public CrawlerStatusResponse status() {
         Map<String, Long> counts = new LinkedHashMap<>();
-        for (String status : List.of("pending", "processing", "completed", "failed")) {
+        for (String status : List.of("pending", "processing", "completed", "failed", "skipped")) {
             counts.put(status, taskRepository.countByStatus(status));
         }
         return CrawlerStatusResponse.builder()
@@ -117,15 +127,25 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
     public void runPendingAsync() {
         List<ReportCrawlTask> tasks = taskRepository.findAll().stream()
                 .filter(task -> "pending".equals(task.getStatus()))
-                .limit(50)
+                .limit(100)
                 .toList();
         for (ReportCrawlTask task : tasks) {
             crawlOne(task);
-            sleepQuietly(1200L);
+            sleepQuietly(600L);
         }
     }
 
     private void crawlOne(ReportCrawlTask task) {
+        Company company = companyRepository.findById(task.getCompanyCode()).orElse(null);
+        if (isBeforeListingYear(company, task.getReportYear())) {
+            task.setStatus("skipped");
+            task.setErrorMsg("上市前年份，跳过抓取");
+            task.setCompletedAt(LocalDateTime.now());
+            task.setUpdatedAt(LocalDateTime.now());
+            taskRepository.save(task);
+            return;
+        }
+
         task.setStatus("processing");
         task.setUpdatedAt(LocalDateTime.now());
         taskRepository.save(task);
@@ -199,5 +219,12 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private boolean isBeforeListingYear(Company company, Integer reportYear) {
+        return company != null
+                && company.getListingDate() != null
+                && reportYear != null
+                && reportYear < company.getListingDate().getYear();
     }
 }

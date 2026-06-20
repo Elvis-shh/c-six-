@@ -237,6 +237,24 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='聊天消息';
 
 -- ============================================================
+-- 14.1 财报原文切片
+-- ============================================================
+CREATE TABLE IF NOT EXISTS report_quote_chunks (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    report_id BIGINT NOT NULL COMMENT '关联财报',
+    company_code VARCHAR(10) NOT NULL COMMENT '股票代码',
+    report_year INT NOT NULL COMMENT '报告年份',
+    page_no INT NOT NULL COMMENT '页码',
+    source_name VARCHAR(255) NOT NULL COMMENT '来源文件名',
+    content TEXT NOT NULL COMMENT '原文片段',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_rqc_report (report_id),
+    INDEX idx_rqc_company_year (company_code, report_year),
+    CONSTRAINT fk_rqc_report FOREIGN KEY (report_id) REFERENCES financial_reports(id) ON DELETE CASCADE,
+    CONSTRAINT fk_rqc_company FOREIGN KEY (company_code) REFERENCES companies(code) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='财报原文切片';
+
+-- ============================================================
 -- 15. 用户搜索历史
 -- ============================================================
 CREATE TABLE IF NOT EXISTS user_search_history (
@@ -291,7 +309,7 @@ CREATE TABLE IF NOT EXISTS mq_task_records (
     task_type VARCHAR(50) NOT NULL COMMENT 'ocr/ner/predict/chat/export',
     request_payload JSON COMMENT '请求参数',
     response_payload JSON COMMENT '响应结果',
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/processing/completed/failed',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/processing/completed/failed/skipped',
     retry_count INT DEFAULT 0 COMMENT '重试次数',
     progress_msg VARCHAR(500) COMMENT '进度描述',
     progress_percent INT DEFAULT 0 COMMENT '进度百分比',
@@ -309,7 +327,7 @@ CREATE TABLE IF NOT EXISTS report_crawl_tasks (
     company_code VARCHAR(10) NOT NULL COMMENT '股票代码',
     report_year INT NOT NULL COMMENT '报告年份',
     report_type VARCHAR(30) NOT NULL COMMENT 'annual/quarter1/semi_annual/quarter3',
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/processing/completed/failed',
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT 'pending/processing/completed/failed/skipped',
     announcement_title VARCHAR(255),
     source_url VARCHAR(500),
     file_path VARCHAR(500),
