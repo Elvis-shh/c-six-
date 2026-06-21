@@ -128,6 +128,33 @@ export interface ChatMessage {
   followUps?: string[]
 }
 
+/** Phase 4: 用户认证 */
+export interface AuthResponse {
+  userId: number
+  email: string
+  nickname: string
+  accessToken: string
+  refreshToken: string
+}
+
+export interface RegisterRequest {
+  email: string
+  password: string
+  nickname?: string
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface HistoryItem {
+  id: number
+  code: string
+  name: string
+  timestamp: number
+}
+
 export interface UploadTaskResponse {
   taskId: string
   status: string

@@ -4,24 +4,24 @@ import { useRouter, useRoute } from 'vue-router'
 import { useHistory, relativeTime } from '@/composables/useHistory'
 import { useExport } from '@/composables/useExport'
 import { useDashboardStore } from '@/stores'
+import { useAuthStore } from '@/stores/authStore'
 import SearchBox from '@/components/SearchBox.vue'
 import ExportMenu from '@/components/ExportMenu.vue'
+import { logoutUser } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
 const { items, remove, clear } = useHistory()
 const showDropdown = ref(false)
 const dashboardStore = useDashboardStore()
+const auth = useAuthStore()
 
-// 仅在 dashboard 页面显示导出
 const showExport = computed(() => route.name === 'Dashboard')
 const companyName = computed(() => dashboardStore.kpiData?.company?.name || '未知公司')
 
 const { exporting, format, exportPNG, exportPDF, exportWord, exportExcel } = useExport(companyName)
 
-function goHome() {
-  router.push('/search')
-}
+function goHome() { router.push('/search') }
 
 function selectFromHistory(code: string) {
   showDropdown.value = false
@@ -35,6 +35,11 @@ async function handleExport(fmt: 'png' | 'pdf' | 'doc' | 'xlsx') {
     case 'doc': await exportWord(); break
     case 'xlsx': await exportExcel(dashboardStore); break
   }
+}
+
+async function handleLogout() {
+  try { await logoutUser() } catch { /* ignore */ }
+  auth.logout()
 }
 </script>
 
@@ -51,6 +56,14 @@ async function handleExport(fmt: 'png' | 'pdf' | 'doc' | 'xlsx') {
 
       <div class="navbar-right">
         <ExportMenu v-if="showExport" :disabled="exporting" @export="handleExport" />
+        <!-- Phase 4: 登录/用户按钮 -->
+        <button v-if="!auth.isLoggedIn" class="auth-btn" @click="router.push('/login')">
+          🔑 登录
+        </button>
+        <div v-else class="user-info">
+          <span class="user-name">{{ auth.user?.nickname || auth.user?.email }}</span>
+          <button class="auth-btn" @click="handleLogout">退出</button>
+        </div>
         <div class="history-wrapper">
           <button class="history-btn" @click="showDropdown = !showDropdown">
             📋 最近分析
@@ -186,6 +199,29 @@ async function handleExport(fmt: 'png' | 'pdf' | 'doc' | 'xlsx') {
     font-size: 13px;
     &:hover { background: var(--risk-red-bg); }
   }
+}
+
+/* Phase 4: 认证按钮 */
+.auth-btn {
+  padding: 8px 14px;
+  background: var(--primary, #3b82f6);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.auth-btn:hover { opacity: 0.85; }
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-name {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {

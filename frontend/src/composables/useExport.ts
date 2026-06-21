@@ -18,9 +18,26 @@ export function useExport(companyName: Ref<string>) {
     const el = document.querySelector('.dashboard-page')
     if (!el) return null
     const clone = el.cloneNode(true) as HTMLElement
+    // 移除不需要导出的元素
+    removeExportExclusions(clone)
     // 将 canvas 替换为 img，解决 html2canvas 无法捕获 canvas 的问题
     replaceCanvasesWithImages(el as HTMLElement, clone)
     return clone
+  }
+
+  // 移除导出时不应包含的元素
+  function removeExportExclusions(clone: HTMLElement) {
+    const selectors = [
+      '.header-upload',         // 上传财报文件卡片
+      '.upload-zone',           // 上传拖拽区域
+      '.upload-entry',          // 搜索页上传入口
+      '.chat-toggle',           // AI 聊天开关按钮
+      '.ChatToggle',            // AI 聊天开关按钮（大写类名）
+      '[class*="chat-toggle"]', // 聊天切换按钮
+    ]
+    for (const sel of selectors) {
+      clone.querySelectorAll(sel).forEach(el => el.remove())
+    }
   }
 
   // 将原 DOM 中的 canvas 转为图片，替换克隆中的对应 canvas

@@ -1,44 +1,108 @@
-// composables/useHistory.ts — 分析历史管理（localStorage 持久化）
-import { ref, onMounted } from 'vue'
-import type { AnalysisHistoryItem } from '@/types'
+// composables/useHistory.ts — 分析历史管理（localStorage + 云端同步）
+import { ref, onMounted, watch } from 'vue'
+import { useAuthStore } from '@/stores/authStore'
+import { getHistory, addHistoryItem, deleteHistoryItem, clearHistory, syncHistory } from '@/api'
 
 const STORAGE_KEY = 'smartreport_history'
 const MAX_ITEMS = 20
 
-export function useHistory() {
-  const items = ref<AnalysisHistoryItem[]>([])
+export interface HistoryRecord {
+  code: string
+  name: string
+  timestamp: number
+  id?: number
+}
 
-  function load() {
+export function useHistory() {
+  const items = ref<HistoryRecord[]>([])
+  const auth = useAuthStore()
+
+  function loadLocal(): HistoryRecord[] {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
-      items.value = raw ? JSON.parse(raw) : []
-    } catch {
-      items.value = []
+      return raw ? JSON.parse(raw) : []
+    } catch { return [] }
+  }
+
+  function saveLocal(list: HistoryRecord[]) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_ITEMS)))
+  }
+
+  async function loadRemote() {
+    try {
+      const res = await getHistory()
+      if (res.data.code === 0 && res.data.data) {
+        items.value = res.data.data.map((h: any) => ({
+          code: h.code,
+          name: h.name,
+          timestamp: h.timestamp,
+          id: h.id,
+        }))
+      }
+    } catch { /* 未登录或网络错误，使用本地数据 */ }
+  }
+
+  async function load() {
+    if (auth.isLoggedIn) {
+      // 登录：先上传本地数据，再拉取云端
+      const localItems = loadLocal()
+      if (localItems.length > 0) {
+        try {
+          const res = await syncHistory(localItems.map(i => ({ code: i.code, name: i.name, timestamp: i.timestamp })))
+          if (res.data.code === 0 && res.data.data) {
+            items.value = res.data.data.map((h: any) => ({ code: h.code, name: h.name, timestamp: h.timestamp, id: h.id }))
+            localStorage.removeItem(STORAGE_KEY) // 清除本地
+            return
+          }
+        } catch { /* fallback */ }
+      }
+      await loadRemote()
+    } else {
+      // 未登录：从本地加载
+      items.value = loadLocal()
     }
   }
 
-  function save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.value))
-  }
-
-  function add(company: { code: string; name: string }) {
+  async function add(company: { code: string; name: string }) {
+    const record: HistoryRecord = { code: company.code, name: company.name, timestamp: Date.now() }
     items.value = items.value.filter(i => i.code !== company.code)
-    items.value.unshift({ ...company, timestamp: Date.now() })
+    items.value.unshift(record)
     if (items.value.length > MAX_ITEMS) {
       items.value = items.value.slice(0, MAX_ITEMS)
     }
-    save()
+
+    if (auth.isLoggedIn) {
+      try { await addHistoryItem(company.code, company.name) } catch { /* ignore */ }
+    } else {
+      saveLocal(items.value)
+    }
   }
 
-  function remove(code: string) {
+  async function remove(code: string) {
+    const item = items.value.find(i => i.code === code)
     items.value = items.value.filter(i => i.code !== code)
-    save()
+    if (auth.isLoggedIn && item?.id) {
+      try { await deleteHistoryItem(item.id) } catch { /* ignore */ }
+    }
+    if (!auth.isLoggedIn) saveLocal(items.value)
   }
 
-  function clear() {
+  async function clear() {
     items.value = []
-    save()
+    if (auth.isLoggedIn) {
+      try { await clearHistory() } catch { /* ignore */ }
+    }
+    localStorage.removeItem(STORAGE_KEY)
   }
+
+  // 监听登录状态变化
+  watch(() => auth.isLoggedIn, (loggedIn) => {
+    if (loggedIn) {
+      load()
+    } else {
+      items.value = loadLocal()
+    }
+  })
 
   onMounted(load)
 
