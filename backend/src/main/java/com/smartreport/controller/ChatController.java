@@ -17,7 +17,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class ChatController {
     private final ChatService chatService;
 
-    @PostMapping(value = "/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = "/messages")
     public SseEmitter sendMessage(@Valid @RequestBody ChatRequest request) {
         return chatService.sendMessage(request.getCompanyCode(), request.getMessage(), request.getSessionId());
     }

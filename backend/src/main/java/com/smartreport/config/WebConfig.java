@@ -35,7 +35,7 @@ public class WebConfig {
         @Override
         public void setContentType(String type) {
             if (type != null && type.toLowerCase().contains("text/event-stream")) {
-                super.setContentType(type);
+                super.setContentType("text/event-stream");
                 return;
             }
             if (type != null && !type.toLowerCase().contains("charset")) {

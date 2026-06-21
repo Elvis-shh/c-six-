@@ -101,6 +101,23 @@ export interface PredictResponse {
     r2: number
     slope: number
   }>
+  /** Story 5.2: 富文本预测洞察（4 段文案） */
+  fullInsights?: PredictInsightResponse
+}
+
+/** 预测洞察面板数据 */
+export interface PredictInsightResponse {
+  companyName?: string
+  revenueTrend?: {
+    title: string
+    description: string
+  }
+  profitOutlook?: {
+    title: string
+    description: string
+  }
+  assumptions?: string[]
+  riskNote?: string
 }
 
 export interface ChatMessage {

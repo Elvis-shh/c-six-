@@ -1,6 +1,6 @@
 // api/index.ts — SmartReport API 请求层
 import axios from 'axios'
-import type { ApiResponse, Company, KpiResponse, TimelineResponse, BenchmarkResponse, HighlightItem, RiskItem, PredictResponse, UploadTaskResponse, UploadTaskStatus, ExtractedIndicator } from '@/types'
+import type { ApiResponse, Company, KpiResponse, TimelineResponse, BenchmarkResponse, HighlightItem, RiskItem, PredictResponse, PredictInsightResponse, UploadTaskResponse, UploadTaskStatus, ExtractedIndicator } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -44,6 +44,21 @@ export const getRisks = (companyCode: string) =>
 export const getPredict = (companyCode: string) =>
   api.get<ApiResponse<PredictResponse>>(`/analysis/${companyCode}/predict`)
 
+export const getPredictInsights = (companyCode: string) =>
+  api.get<ApiResponse<PredictInsightResponse>>(`/analysis/${companyCode}/predict/insights`)
+
+// ============================================================
+// Phase 2: 后端导出服务
+// ============================================================
+export const submitBackendExport = (companyCode: string, format: 'pdf' | 'xlsx' | 'doc') =>
+  api.post<ApiResponse<{ taskId: string; status: string }>>('/export', { companyCode, format })
+
+export const getExportTask = (taskId: string) =>
+  api.get<ApiResponse<{ taskId: string; status: string; progress: number; fileName: string }>>(`/export/tasks/${taskId}`)
+
+export const downloadExportFile = (taskId: string) =>
+  api.get(`/export/download/${taskId}`, { responseType: 'blob' })
+
 export const getBenchmark = (companyCode: string, year?: number) =>
   api.get<ApiResponse<BenchmarkResponse>>(`/analysis/${companyCode}/benchmark`, { params: { year } })
 
@@ -56,7 +71,7 @@ export const getTerms = () =>
 export const sendChatMessage = (payload: { companyCode: string; message: string; sessionId: string }) =>
   fetch('/api/v1/chat/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
     body: JSON.stringify(payload),
   })
 

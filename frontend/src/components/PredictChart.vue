@@ -2,6 +2,8 @@
 import { computed, ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { getPredict } from '@/api'
+import InsightPanel from '@/components/InsightPanel.vue'
+import type { InsightData } from '@/components/InsightPanel.vue'
 
 Chart.register(...registerables)
 
@@ -11,6 +13,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const predictData = ref<any>(null)
 const insights = ref<any>(null)
+const fullInsights = ref<InsightData | null>(null)
 const selectedMetric = ref(0)
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -30,6 +33,7 @@ async function load() {
     const res = await getPredict(props.companyCode)
     predictData.value = res.data.data
     insights.value = res.data.data?.insights
+    fullInsights.value = res.data.data?.fullInsights || null
   } catch (e: any) {
     error.value = e?.response?.data?.message || '加载预测数据失败'
   } finally {
@@ -167,25 +171,8 @@ onBeforeUnmount(() => {
         <canvas ref="canvasRef"></canvas>
       </div>
 
-      <div v-if="currentInsight" class="insights-grid">
-        <div class="insight-card">
-          <div class="insight-header">
-            <span class="insight-icon">{{ currentInsight.trend === '增长' ? '📈' : '📉' }}</span>
-            <span class="insight-title">{{ currentInsight.name }}</span>
-          </div>
-          <div class="insight-body">
-            <p>
-              基于近年可用财报数据（R²={{ currentInsight.r2 }}），
-              预计 {{ currentInsight.name }} 将保持<strong>{{ currentInsight.trend }}</strong>趋势，
-              下一年达到 <strong>{{ currentInsight.predictedValue }} {{ currentInsight.unit }}</strong>，
-              同比变化 <strong :class="currentInsight.change > 0 ? 'up' : 'down'">{{ currentInsight.change > 0 ? '+' : '' }}{{ currentInsight.change }}%</strong>。
-            </p>
-          </div>
-        </div>
-      </div>
-      <div class="disclaimer">
-        ⚠️ 以上预测基于历史数据的简单线性回归，仅供参考，不构成投资建议。
-      </div>
+      <!-- Story 5.2: 预测洞察面板（4 段文案 + 免责声明） -->
+      <InsightPanel :insights="fullInsights" />
     </template>
     <div v-else class="loading-text">可用于预测的连续历史指标不足</div>
   </div>
@@ -245,57 +232,5 @@ onBeforeUnmount(() => {
   border-color: var(--primary, #3b82f6);
 }
 
-.insights-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
-}
 
-.insight-card {
-  padding: 18px 20px;
-  background: var(--surface);
-  border-radius: 10px;
-  border: 1px solid var(--border, #e8ecf1);
-}
-
-.insight-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.insight-icon {
-  font-size: 20px;
-}
-
-.insight-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.insight-body p {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.7;
-  margin: 0;
-}
-
-.insight-body strong {
-  color: var(--text);
-}
-
-.up { color: #e53e3e; }
-.down { color: #38a169; }
-
-.disclaimer {
-  text-align: center;
-  font-size: 12px;
-  color: var(--text-muted);
-  padding: 12px;
-  background: var(--bg-muted, #fff8e1);
-  border-radius: 8px;
-}
 </style>

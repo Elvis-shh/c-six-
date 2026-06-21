@@ -4,10 +4,12 @@ import com.smartreport.common.ApiResponse;
 import com.smartreport.models.dto.BenchmarkResponse;
 import com.smartreport.service.AnalysisService;
 import com.smartreport.service.BenchmarkService;
+import com.smartreport.service.PredictInsightService;
 import com.smartreport.service.PredictService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,6 +21,7 @@ public class AnalysisController {
     private final BenchmarkService benchmarkService;
     private final AnalysisService analysisService;
     private final PredictService predictService;
+    private final PredictInsightService predictInsightService;
 
     @GetMapping("/{companyCode}/benchmark")
     public ApiResponse<BenchmarkResponse> getBenchmark(
@@ -39,6 +42,16 @@ public class AnalysisController {
 
     @GetMapping("/{companyCode}/predict")
     public ApiResponse<Map<String, Object>> getPredict(@PathVariable String companyCode) {
-        return ApiResponse.success(predictService.predict(companyCode));
+        Map<String, Object> predictData = predictService.predict(companyCode);
+        // 附加富文本洞察
+        Map<String, Object> enrichedInsights = predictInsightService.generateInsights(companyCode);
+        Map<String, Object> result = new LinkedHashMap<>(predictData);
+        result.put("fullInsights", enrichedInsights);
+        return ApiResponse.success(result);
+    }
+
+    @GetMapping("/{companyCode}/predict/insights")
+    public ApiResponse<Map<String, Object>> getPredictInsights(@PathVariable String companyCode) {
+        return ApiResponse.success(predictInsightService.generateInsights(companyCode));
     }
 }
