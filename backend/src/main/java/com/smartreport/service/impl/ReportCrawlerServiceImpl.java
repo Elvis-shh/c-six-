@@ -66,14 +66,15 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                 }
             }
         }
-        runPendingAsync();
         return CrawlStartResponse.builder().created(created).skipped(skipped).totalCandidates(companies.size()).build();
     }
 
     private List<Company> loadCompanies(CrawlStartRequest request) {
         int limit = request.getLimit() == null ? 30 : request.getLimit();
-        if ("CSI300".equalsIgnoreCase(request.getIndexCode()) || "000300".equals(request.getIndexCode())) {
-            List<AiIndexConstituent> constituents = fetchCsi300Constituents();
+        if ("CSI300".equalsIgnoreCase(request.getIndexCode()) || "000300".equals(request.getIndexCode())
+                || "CSI_A50".equalsIgnoreCase(request.getIndexCode()) || "A50".equalsIgnoreCase(request.getIndexCode()) || "000510".equals(request.getIndexCode())) {
+            boolean csiA50 = "CSI_A50".equalsIgnoreCase(request.getIndexCode()) || "A50".equalsIgnoreCase(request.getIndexCode()) || "000510".equals(request.getIndexCode());
+            List<AiIndexConstituent> constituents = fetchIndexConstituents(csiA50);
             List<Company> companies = new ArrayList<>();
             for (AiIndexConstituent item : constituents.stream().limit(limit).toList()) {
                 Company company = companyRepository.findById(item.getCode()).orElseGet(() -> companyRepository.save(Company.builder()
@@ -81,11 +82,16 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                         .name(item.getName())
                         .shortName(item.getName())
                         .market(item.getMarket())
-                        .industry("沪深300")
+                        .industry(csiA50 ? "中证A50" : "沪深300")
                         .status(1)
                         .build()));
                 if (company.getListingDate() == null && item.getListingDate() != null) {
                     company.setListingDate(LocalDate.parse(item.getListingDate()));
+                }
+                if (csiA50 && !"中证A50".equals(company.getIndustry())) {
+                    company.setIndustry("中证A50");
+                }
+                if (company.getListingDate() == null && item.getListingDate() != null || csiA50) {
                     company = companyRepository.save(company);
                 }
                 companies.add(company);
@@ -98,14 +104,14 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                 .toList();
     }
 
-    private List<AiIndexConstituent> fetchCsi300Constituents() {
+    private List<AiIndexConstituent> fetchIndexConstituents(boolean csiA50) {
         RestClient client = RestClient.builder().baseUrl(aiEngineUrl).build();
         AiIndexResponse response = client.get()
-                .uri("/ai/v1/indices/csi300/constituents")
+                .uri(csiA50 ? "/ai/v1/indices/csi-a50/constituents" : "/ai/v1/indices/csi300/constituents")
                 .retrieve()
                 .body(AiIndexResponse.class);
         if (response == null || response.getData() == null || response.getData().isEmpty()) {
-            throw new IllegalStateException("沪深300成分股获取失败");
+            throw new IllegalStateException((csiA50 ? "中证A50" : "沪深300") + "成分股获取失败");
         }
         return response.getData();
     }
@@ -125,10 +131,19 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
     @Async("crawlerExecutor")
     @Override
     public void runPendingAsync() {
-        List<ReportCrawlTask> tasks = taskRepository.findAll().stream()
+        List<ReportCrawlTask> pending = taskRepository.findAll().stream()
                 .filter(task -> "pending".equals(task.getStatus()))
+                .toList();
+        List<ReportCrawlTask> priorityTasks = pending.stream()
+                .filter(task -> task.getReportYear() != null && task.getReportYear() >= 2021 && task.getReportYear() <= 2025)
+                .filter(task -> companyRepository.findById(task.getCompanyCode())
+                        .map(company -> "中证A50".equals(company.getIndustry()))
+                        .orElse(false))
                 .limit(100)
                 .toList();
+        List<ReportCrawlTask> tasks = priorityTasks.isEmpty()
+                ? pending.stream().limit(100).toList()
+                : priorityTasks;
         for (ReportCrawlTask task : tasks) {
             crawlOne(task);
             sleepQuietly(600L);

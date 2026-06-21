@@ -5,10 +5,11 @@ import xlrd
 class IndexService:
     EASTMONEY_LIST_URL = "https://push2.eastmoney.com/api/qt/clist/get"
     CSI300_CONS_URL = "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/cons/000300cons.xls"
+    CSI_A50_CONS_URL = "https://oss-ch.csindex.com.cn/static/html/csindex/public/uploads/file/autofile/cons/930050cons.xls"
 
     async def get_csi300_constituents(self) -> list[dict]:
         try:
-            rows = await self._get_from_csindex_file()
+            rows = await self._get_from_csindex_file(self.CSI300_CONS_URL, "csindex:000300cons.xls", 250, 300)
             try:
                 listing_dates = {item["code"]: item.get("listingDate") for item in await self._get_from_eastmoney()}
                 for row in rows:
@@ -19,10 +20,13 @@ class IndexService:
         except Exception:
             return await self._get_from_eastmoney()
 
-    async def _get_from_csindex_file(self) -> list[dict]:
+    async def get_csi_a50_constituents(self) -> list[dict]:
+        return await self._get_from_csindex_file(self.CSI_A50_CONS_URL, "csindex:930050cons.xls", 45, 50)
+
+    async def _get_from_csindex_file(self, url: str, source: str, min_count: int, limit: int) -> list[dict]:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36"}
         async with httpx.AsyncClient(timeout=60, headers=headers, follow_redirects=True) as client:
-            response = await client.get(self.CSI300_CONS_URL)
+            response = await client.get(url)
             response.raise_for_status()
 
         workbook = xlrd.open_workbook(file_contents=response.content)
@@ -44,11 +48,11 @@ class IndexService:
                 "code": code,
                 "name": name,
                 "market": self._market_from_text(code, market_text),
-                "source": "csindex:000300cons.xls",
+                "source": source,
             })
-        if len(rows) < 250:
+        if len(rows) < min_count:
             raise ValueError(f"中证指数成分股文件返回数量异常: {len(rows)}")
-        return rows[:300]
+        return rows[:limit]
 
     async def _get_from_eastmoney(self) -> list[dict]:
         params = {

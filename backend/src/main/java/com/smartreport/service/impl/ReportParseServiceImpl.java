@@ -4,6 +4,7 @@ import com.smartreport.models.dto.ParseDtos.*;
 import com.smartreport.models.entity.FinancialIndicator;
 import com.smartreport.models.entity.FinancialReport;
 import com.smartreport.models.entity.ReportQuoteChunk;
+import com.smartreport.repository.CompanyRepository;
 import com.smartreport.repository.FinancialIndicatorRepository;
 import com.smartreport.repository.FinancialReportRepository;
 import com.smartreport.repository.ReportQuoteChunkRepository;
@@ -28,6 +29,7 @@ public class ReportParseServiceImpl implements ReportParseService {
     private final FinancialReportRepository reportRepository;
     private final FinancialIndicatorRepository indicatorRepository;
     private final ReportQuoteChunkRepository quoteChunkRepository;
+    private final CompanyRepository companyRepository;
 
     @Value("${ai-engine.url:http://localhost:8000}")
     private String aiEngineUrl;
@@ -38,6 +40,7 @@ public class ReportParseServiceImpl implements ReportParseService {
                 .filter(report -> request.getSource().equalsIgnoreCase(report.getSource()))
                 .filter(report -> report.getStatus() != null && report.getStatus() == 1)
                 .filter(report -> report.getSourceFileUrl() != null && !report.getSourceFileUrl().isBlank())
+                .filter(report -> matchesIndex(request.getIndexCode(), report.getCompanyCode()))
                 .filter(report -> indicatorRepository.findByReportId(report.getId()).isEmpty())
                 .limit(normalizeLimit(request.getLimit(), 20))
                 .toList();
@@ -142,19 +145,23 @@ public class ReportParseServiceImpl implements ReportParseService {
     }
 
     @Override
-    @Transactional
     public ParseStartResponse importQuoteChunks(ParseStartRequest request) {
         List<FinancialReport> candidates = reportRepository.findAll().stream()
                 .filter(report -> request.getSource().equalsIgnoreCase(report.getSource()))
                 .filter(report -> report.getSourceFileUrl() != null && !report.getSourceFileUrl().isBlank())
+                .filter(report -> matchesIndex(request.getIndexCode(), report.getCompanyCode()))
                 .filter(report -> !quoteChunkRepository.existsByReportId(report.getId()))
                 .limit(normalizeLimit(request.getLimit(), 20))
                 .toList();
 
         int queued = 0;
         for (FinancialReport report : candidates) {
-            if (importOneQuoteChunk(report)) {
-                queued++;
+            try {
+                if (importOneQuoteChunk(report)) {
+                    queued++;
+                }
+            } catch (Exception ignored) {
+                // Missing files or bad PDFs should not abort the whole import batch.
             }
         }
         return ParseStartResponse.builder().queued(queued).skipped(candidates.size() - queued).build();
@@ -186,16 +193,31 @@ public class ReportParseServiceImpl implements ReportParseService {
         if (!Double.isFinite(value)) {
             return false;
         }
-        if ("grossMargin".equals(key)) {
+        if (List.of("grossMargin", "netMargin", "debtRatio", "roe", "rdExpenseRatio").contains(key)) {
             return value >= -100 && value <= 100;
+        }
+        if ("eps".equals(key)) {
+            return value >= -100 && value <= 1000;
         }
         if ("revenue".equals(key) || "totalAssets".equals(key)) {
             return value >= 1 && value <= 500000000;
         }
-        if ("profit".equals(key) || "totalLiabilities".equals(key) || "cashFlow".equals(key)) {
+        if (List.of("profit", "totalLiabilities", "cashFlow", "operatingCost", "rdExpense", "sellingExpense", "adminExpense", "financeExpense").contains(key)) {
             return value >= -500000000 && value <= 500000000;
         }
         return value > 0;
+    }
+
+    private boolean matchesIndex(String indexCode, String companyCode) {
+        if (indexCode == null || indexCode.isBlank()) {
+            return true;
+        }
+        if ("CSI_A50".equalsIgnoreCase(indexCode) || "A50".equalsIgnoreCase(indexCode) || "000510".equals(indexCode)) {
+            return companyRepository.findById(companyCode)
+                    .map(company -> "中证A50".equals(company.getIndustry()))
+                    .orElse(false);
+        }
+        return true;
     }
 
     private BigDecimal percentage(BigDecimal numerator, BigDecimal denominator) {
@@ -219,6 +241,7 @@ public class ReportParseServiceImpl implements ReportParseService {
                 .build());
     }
 
+    @Transactional
     private boolean importOneQuoteChunk(FinancialReport report) {
         RestClient client = RestClient.builder().baseUrl(aiEngineUrl).build();
         AiQuoteResponse response = client.post()

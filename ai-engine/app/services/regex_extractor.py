@@ -8,6 +8,12 @@ class RegexExtractor:
         "totalAssets": ["资产总额", "资产总计", "总资产", "資產總額", "資產總計", "總資產"],
         "totalLiabilities": ["负债合计", "负债总额", "总负债", "負債合計", "負債總額", "總負債"],
         "cashFlow": ["经营活动产生的现金流量净额", "经营活动现金流量净额", "經營活動產生的現金流量淨額", "經營活動現金流量淨額"],
+        "operatingCost": ["营业成本", "營業成本"],
+        "rdExpense": ["研发费用", "研發費用"],
+        "sellingExpense": ["销售费用", "銷售費用"],
+        "adminExpense": ["管理费用", "管理費用"],
+        "financeExpense": ["财务费用", "財務費用"],
+        "eps": ["基本每股收益"],
     }
 
     MULTILINE_ALIASES = {
@@ -24,6 +30,8 @@ class RegexExtractor:
         "totalLiabilities": [r"(?:总负债|總負債|负债合计|負債合計)[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?"],
         "cashFlow": [r"[经营經營]活动产生的现金流量[净淨]额[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?", r"[经营經營].*现金流[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?"],
         "grossMargin": [r"毛利率[：:\s\n]*([\d,]+\.?\d*)\s*%"],
+        "rdExpense": [r"研发费用[：:\s\n]*([\d,]+\.?\d*)\s*(万亿|萬億|亿元|億元|万元|萬元|元)?"],
+        "eps": [r"基本每股收益[：:\s\n]*(-?[\d,]+\.?\d*)\s*(元)?"],
     }
 
     def extract(self, text: str) -> dict:
@@ -39,6 +47,8 @@ class RegexExtractor:
                     continue
                 value = float(match.group(1).replace(",", ""))
                 unit = "%" if key == "grossMargin" else "亿"
+                if key == "eps":
+                    unit = "元"
                 raw_unit = match.group(2) if len(match.groups()) > 1 else None
                 if raw_unit in {"万元", "萬元"}:
                     value = value / 10000
@@ -58,7 +68,45 @@ class RegexExtractor:
                     "matchedText": match.group(0),
                 }
                 break
+        self._add_derived_metrics(results)
         return results
+
+    def _add_derived_metrics(self, results: dict) -> None:
+        revenue = self._value(results, "revenue")
+        profit = self._value(results, "profit")
+        assets = self._value(results, "totalAssets")
+        liabilities = self._value(results, "totalLiabilities")
+        operating_cost = self._value(results, "operatingCost")
+        rd_expense = self._value(results, "rdExpense")
+        if revenue and profit and "netMargin" not in results:
+            self._put_derived(results, "netMargin", profit / revenue * 100, "%")
+        if assets and liabilities and "debtRatio" not in results:
+            self._put_derived(results, "debtRatio", liabilities / assets * 100, "%")
+        if revenue and operating_cost and "grossMargin" not in results:
+            self._put_derived(results, "grossMargin", (revenue - operating_cost) / revenue * 100, "%")
+        if revenue and rd_expense and "rdExpenseRatio" not in results:
+            self._put_derived(results, "rdExpenseRatio", rd_expense / revenue * 100, "%")
+        if assets and liabilities and profit and "roe" not in results:
+            equity = assets - liabilities
+            if equity > 0:
+                self._put_derived(results, "roe", profit / equity * 100, "%")
+
+    def _value(self, results: dict, key: str) -> float | None:
+        item = results.get(key)
+        if not item:
+            return None
+        return item.get("value")
+
+    def _put_derived(self, results: dict, key: str, value: float, unit: str) -> None:
+        if value is None or not (-1000000 < value < 1000000):
+            return
+        results[key] = {
+            "value": value,
+            "unit": unit,
+            "confidence": 0.9,
+            "method": "derived",
+            "matchedText": "derived from extracted report indicators",
+        }
 
     def _extract_from_statement_tables(self, text: str) -> dict:
         results = {}

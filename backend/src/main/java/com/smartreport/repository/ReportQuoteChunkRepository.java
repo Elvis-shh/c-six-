@@ -18,6 +18,8 @@ public interface ReportQuoteChunkRepository extends JpaRepository<ReportQuoteChu
 
     boolean existsByReportId(Long reportId);
 
+    List<ReportQuoteChunk> findByReportIdOrderByPageNoAsc(Long reportId);
+
     List<ReportQuoteChunk> findTop20ByCompanyCodeOrderByReportYearDescPageNoAsc(String companyCode);
 
     @Query("""

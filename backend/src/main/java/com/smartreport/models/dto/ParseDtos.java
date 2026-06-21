@@ -13,6 +13,7 @@ public class ParseDtos {
     public static class ParseStartRequest {
         private Integer limit = 20;
         private String source = "crawler";
+        private String indexCode;
     }
 
     @Data
