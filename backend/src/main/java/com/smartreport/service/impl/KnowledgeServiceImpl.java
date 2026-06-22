@@ -5,6 +5,7 @@ import com.smartreport.models.entity.Company;
 import com.smartreport.models.entity.FinancialReport;
 import com.smartreport.models.entity.KnowledgeChunk;
 import com.smartreport.models.entity.ReportQuoteChunk;
+import com.smartreport.repository.CompanyIndustryTagRepository;
 import com.smartreport.repository.CompanyRepository;
 import com.smartreport.repository.FinancialReportRepository;
 import com.smartreport.repository.KnowledgeChunkRepository;
@@ -16,13 +17,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class KnowledgeServiceImpl implements KnowledgeService {
     private final CompanyRepository companyRepository;
+    private final CompanyIndustryTagRepository companyIndustryTagRepository;
     private final FinancialReportRepository reportRepository;
     private final ReportQuoteChunkRepository quoteChunkRepository;
     private final KnowledgeChunkRepository knowledgeChunkRepository;
@@ -64,21 +68,29 @@ public class KnowledgeServiceImpl implements KnowledgeService {
 
     @Override
     public KnowledgeSearchResponse search(KnowledgeSearchRequest request) {
-        String keyword = bestKeyword(request.getQuery());
         int topK = request.getTopK() == null || request.getTopK() <= 0 ? 8 : Math.min(request.getTopK(), 30);
-        List<KnowledgeSearchItem> results = knowledgeChunkRepository
-                .search("financial-report", request.getCompanyCode(), keyword, PageRequest.of(0, topK * 3))
-                .stream()
-                .map(chunk -> KnowledgeSearchItem.builder()
-                        .id(chunk.getId())
-                        .sourceType(chunk.getSourceType())
-                        .sourceName(chunk.getSourceName())
-                        .sourceUrl(chunk.getSourceUrl())
-                        .companyCode(chunk.getCompanyCode())
-                        .pageNo(chunk.getPageNo())
-                        .content(snippet(chunk.getContent(), keyword))
-                        .score(score(request.getQuery(), chunk.getContent()))
-                        .build())
+        List<String> keywords = keywords(request.getQuery());
+        Map<Long, KnowledgeSearchItem> merged = new LinkedHashMap<>();
+        for (String keyword : keywords) {
+            knowledgeChunkRepository.search("financial-report", request.getCompanyCode(), keyword, PageRequest.of(0, topK * 4))
+                    .forEach(chunk -> {
+                        double candidateScore = score(request.getQuery(), chunk.getContent());
+                        KnowledgeSearchItem current = merged.get(chunk.getId());
+                        if (current == null || candidateScore > current.getScore()) {
+                            merged.put(chunk.getId(), KnowledgeSearchItem.builder()
+                                    .id(chunk.getId())
+                                    .sourceType(chunk.getSourceType())
+                                    .sourceName(chunk.getSourceName())
+                                    .sourceUrl(chunk.getSourceUrl())
+                                    .companyCode(chunk.getCompanyCode())
+                                    .pageNo(chunk.getPageNo())
+                                    .content(snippet(chunk.getContent(), keyword))
+                                    .score(candidateScore)
+                                    .build());
+                        }
+                    });
+        }
+        List<KnowledgeSearchItem> results = merged.values().stream()
                 .sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
                 .limit(topK)
                 .toList();
@@ -87,10 +99,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
 
     private List<String> targetCodes(String indexCode) {
         if ("CSI_A50".equalsIgnoreCase(indexCode) || "A50".equalsIgnoreCase(indexCode) || "000510".equals(indexCode)) {
-            return companyRepository.findByStatus(1).stream()
-                    .filter(company -> "中证A50".equals(company.getIndustry()))
-                    .map(Company::getCode)
-                    .toList();
+            return companyIndustryTagRepository.findCompanyCodesByTag("中证A50");
         }
         return List.of();
     }
@@ -133,6 +142,21 @@ public class KnowledgeServiceImpl implements KnowledgeService {
             return compact;
         }
         return compact.substring(0, 8);
+    }
+
+    private List<String> keywords(String query) {
+        List<String> keywords = new ArrayList<>();
+        if (query != null) {
+            for (String token : query.replaceAll("[^\\p{IsHan}A-Za-z0-9]", " ").split("\\s+")) {
+                if (!token.isBlank() && token.length() >= 2 && !keywords.contains(token)) {
+                    keywords.add(token);
+                }
+            }
+        }
+        if (keywords.isEmpty()) {
+            keywords.add(bestKeyword(query));
+        }
+        return keywords;
     }
 
     private String snippet(String content, String keyword) {

@@ -11,6 +11,7 @@ export function useSearch() {
 
   let timer: ReturnType<typeof setTimeout> | null = null
   const inputRef = ref<HTMLInputElement | null>(null)
+  const rootRef = ref<HTMLElement | null>(null)
 
   function onInput(q: string) {
     if (timer) clearTimeout(timer)
@@ -64,7 +65,7 @@ export function useSearch() {
     inputRef.value?.focus()
   }
 
-  return { inputRef, onInput, onKeydown, selectCompany, focusInput }
+  return { inputRef, rootRef, onInput, onKeydown, selectCompany, focusInput }
 }
 
 // 高亮匹配关键词

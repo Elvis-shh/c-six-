@@ -4,6 +4,7 @@ import com.smartreport.models.dto.*;
 import com.smartreport.models.entity.Company;
 import com.smartreport.models.entity.FinancialIndicator;
 import com.smartreport.models.entity.FinancialReport;
+import com.smartreport.repository.CompanyIndustryTagRepository;
 import com.smartreport.repository.CompanyRepository;
 import com.smartreport.repository.FinancialIndicatorRepository;
 import com.smartreport.repository.FinancialReportRepository;
@@ -24,6 +25,7 @@ import java.util.stream.Collectors;
 public class ReportServiceImpl implements ReportService {
 
     private final CompanyRepository companyRepository;
+    private final CompanyIndustryTagRepository companyIndustryTagRepository;
     private final FinancialReportRepository reportRepository;
     private final FinancialIndicatorRepository indicatorRepository;
     private final IndicatorService indicatorService;
@@ -184,7 +186,7 @@ public class ReportServiceImpl implements ReportService {
 
     private List<String> coreKeyCandidates(Company company) {
         List<String> covered = new ArrayList<>();
-        if (company != null && "中证A50".equals(company.getIndustry())) {
+        if (company != null && companyIndustryTagRepository.existsByCompanyCodeAndTag(company.getCode(), "中证A50")) {
             covered.addAll(indicatorRepository.findMostCoveredKeysByIndustryAndSource(
                     "中证A50", "crawler", PageRequest.of(0, 12)));
         }

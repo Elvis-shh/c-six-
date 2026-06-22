@@ -11,9 +11,11 @@ class IndexService:
         try:
             rows = await self._get_from_csindex_file(self.CSI300_CONS_URL, "csindex:000300cons.xls", 250, 300)
             try:
-                listing_dates = {item["code"]: item.get("listingDate") for item in await self._get_from_eastmoney()}
+                quote_details = {item["code"]: item for item in await self._get_from_eastmoney()}
                 for row in rows:
-                    row["listingDate"] = listing_dates.get(row["code"])
+                    detail = quote_details.get(row["code"], {})
+                    row["listingDate"] = detail.get("listingDate")
+                    row["industry"] = detail.get("industry")
             except Exception:
                 pass
             return rows
@@ -21,7 +23,16 @@ class IndexService:
             return await self._get_from_eastmoney()
 
     async def get_csi_a50_constituents(self) -> list[dict]:
-        return await self._get_from_csindex_file(self.CSI_A50_CONS_URL, "csindex:930050cons.xls", 45, 50)
+        rows = await self._get_from_csindex_file(self.CSI_A50_CONS_URL, "csindex:930050cons.xls", 45, 50)
+        try:
+            quote_details = {item["code"]: item for item in await self._get_from_eastmoney()}
+            for row in rows:
+                detail = quote_details.get(row["code"], {})
+                row["listingDate"] = row.get("listingDate") or detail.get("listingDate")
+                row["industry"] = detail.get("industry") or row.get("industry")
+        except Exception:
+            pass
+        return rows
 
     async def _get_from_csindex_file(self, url: str, source: str, min_count: int, limit: int) -> list[dict]:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36"}
@@ -35,6 +46,7 @@ class IndexService:
         code_col = self._find_column(header_row, ["成分券代码", "证券代码", "Constituent Code"])
         name_col = self._find_column(header_row, ["成分券名称", "证券简称", "Constituent Name"])
         market_col = self._find_column(header_row, ["交易所", "Exchange"])
+        listing_col = self._find_optional_column(header_row, ["上市日期", "Listing Date"])
 
         rows = []
         for row_index in range(1, sheet.nrows):
@@ -48,6 +60,7 @@ class IndexService:
                 "code": code,
                 "name": name,
                 "market": self._market_from_text(code, market_text),
+                "listingDate": self._format_listing_date_cell(sheet.cell_value(row_index, listing_col)) if listing_col >= 0 else None,
                 "source": source,
             })
         if len(rows) < min_count:
@@ -86,6 +99,7 @@ class IndexService:
                 "code": code,
                 "name": name,
                 "market": self._market(code),
+                "industry": row.get("f100") or None,
                 "listingDate": self._format_listing_date(row.get("f26")),
                 "source": "eastmoney:BK0500",
             })
@@ -99,6 +113,13 @@ class IndexService:
                 if candidate in header:
                     return index
         raise ValueError(f"未找到列: {candidates}")
+
+    def _find_optional_column(self, headers: list[str], candidates: list[str]) -> int:
+        for candidate in candidates:
+            for index, header in enumerate(headers):
+                if candidate in header:
+                    return index
+        return -1
 
     def _market_from_text(self, code: str, market_text: str) -> str:
         if "上海" in market_text or "SH" in market_text.upper():
@@ -119,6 +140,15 @@ class IndexService:
         if len(text) != 8 or text == "0":
             return None
         return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
+
+    def _format_listing_date_cell(self, value) -> str | None:
+        text = str(value or "").strip()
+        if not text or text == "0":
+            return None
+        compact = text.replace("-", "").replace("/", "")
+        if len(compact) == 8 and compact.isdigit():
+            return f"{compact[:4]}-{compact[4:6]}-{compact[6:8]}"
+        return None
 
 
 index_service = IndexService()

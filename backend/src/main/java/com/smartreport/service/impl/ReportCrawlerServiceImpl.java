@@ -2,9 +2,11 @@ package com.smartreport.service.impl;
 
 import com.smartreport.models.dto.CrawlerDtos.*;
 import com.smartreport.models.entity.Company;
+import com.smartreport.models.entity.CompanyIndustryTag;
 import com.smartreport.models.entity.FinancialReport;
 import com.smartreport.models.entity.ReportCrawlTask;
 import com.smartreport.models.entity.ReportFile;
+import com.smartreport.repository.CompanyIndustryTagRepository;
 import com.smartreport.repository.CompanyRepository;
 import com.smartreport.repository.FinancialReportRepository;
 import com.smartreport.repository.ReportCrawlTaskRepository;
@@ -30,6 +32,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ReportCrawlerServiceImpl implements ReportCrawlerService {
     private final CompanyRepository companyRepository;
+    private final CompanyIndustryTagRepository companyIndustryTagRepository;
     private final ReportCrawlTaskRepository taskRepository;
     private final FinancialReportRepository reportRepository;
     private final ReportFileRepository reportFileRepository;
@@ -82,17 +85,23 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                         .name(item.getName())
                         .shortName(item.getName())
                         .market(item.getMarket())
-                        .industry(csiA50 ? "中证A50" : "沪深300")
+                        .industry(item.getIndustry() != null && !item.getIndustry().isBlank() ? item.getIndustry() : (csiA50 ? "中证A50" : "沪深300"))
                         .status(1)
                         .build()));
                 if (company.getListingDate() == null && item.getListingDate() != null) {
                     company.setListingDate(LocalDate.parse(item.getListingDate()));
                 }
-                if (csiA50 && !"中证A50".equals(company.getIndustry())) {
-                    company.setIndustry("中证A50");
+                if (item.getIndustry() != null && !item.getIndustry().isBlank()) {
+                    company.setIndustry(item.getIndustry());
                 }
-                if (company.getListingDate() == null && item.getListingDate() != null || csiA50) {
+                if (company.getListingDate() == null && item.getListingDate() != null || item.getIndustry() != null && !item.getIndustry().isBlank()) {
                     company = companyRepository.save(company);
+                }
+                if (csiA50 && !companyIndustryTagRepository.existsByCompanyCodeAndTag(company.getCode(), "中证A50")) {
+                    companyIndustryTagRepository.save(CompanyIndustryTag.builder()
+                            .companyCode(company.getCode())
+                            .tag("中证A50")
+                            .build());
                 }
                 companies.add(company);
             }
@@ -136,9 +145,7 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                 .toList();
         List<ReportCrawlTask> priorityTasks = pending.stream()
                 .filter(task -> task.getReportYear() != null && task.getReportYear() >= 2021 && task.getReportYear() <= 2025)
-                .filter(task -> companyRepository.findById(task.getCompanyCode())
-                        .map(company -> "中证A50".equals(company.getIndustry()))
-                        .orElse(false))
+                .filter(task -> companyIndustryTagRepository.existsByCompanyCodeAndTag(task.getCompanyCode(), "中证A50"))
                 .limit(100)
                 .toList();
         List<ReportCrawlTask> tasks = priorityTasks.isEmpty()

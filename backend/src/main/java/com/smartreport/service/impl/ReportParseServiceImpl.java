@@ -4,6 +4,7 @@ import com.smartreport.models.dto.ParseDtos.*;
 import com.smartreport.models.entity.FinancialIndicator;
 import com.smartreport.models.entity.FinancialReport;
 import com.smartreport.models.entity.ReportQuoteChunk;
+import com.smartreport.repository.CompanyIndustryTagRepository;
 import com.smartreport.repository.CompanyRepository;
 import com.smartreport.repository.FinancialIndicatorRepository;
 import com.smartreport.repository.FinancialReportRepository;
@@ -30,6 +31,7 @@ public class ReportParseServiceImpl implements ReportParseService {
     private final FinancialIndicatorRepository indicatorRepository;
     private final ReportQuoteChunkRepository quoteChunkRepository;
     private final CompanyRepository companyRepository;
+    private final CompanyIndustryTagRepository companyIndustryTagRepository;
 
     @Value("${ai-engine.url:http://localhost:8000}")
     private String aiEngineUrl;
@@ -213,9 +215,7 @@ public class ReportParseServiceImpl implements ReportParseService {
             return true;
         }
         if ("CSI_A50".equalsIgnoreCase(indexCode) || "A50".equalsIgnoreCase(indexCode) || "000510".equals(indexCode)) {
-            return companyRepository.findById(companyCode)
-                    .map(company -> "中证A50".equals(company.getIndustry()))
-                    .orElse(false);
+            return companyIndustryTagRepository.existsByCompanyCodeAndTag(companyCode, "中证A50");
         }
         return true;
     }

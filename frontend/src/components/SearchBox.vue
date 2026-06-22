@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSearch, highlightMatch } from '@/composables/useSearch'
 import { getHotCompanies } from '@/api'
 import type { Company } from '@/types'
 
-const { inputRef, onInput, onKeydown, selectCompany } = useSearch()
+const { inputRef, rootRef, onInput, onKeydown, selectCompany } = useSearch()
 const store = useSearchStore()
 const router = useRouter()
 import { useSearchStore } from '@/stores'
@@ -23,6 +23,21 @@ function onFocus() {
   }
 }
 
+function onDocumentPointerDown(event: MouseEvent) {
+  const target = event.target as Node | null
+  if (rootRef.value && target && !rootRef.value.contains(target)) {
+    store.close()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('mousedown', onDocumentPointerDown)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', onDocumentPointerDown)
+})
+
 // 搜索栏也用于 Navbar 中的内嵌搜索
 const props = withDefaults(defineProps<{
   compact?: boolean
@@ -34,7 +49,7 @@ const props = withDefaults(defineProps<{
 </script>
 
 <template>
-  <div class="search-box" :class="{ compact }">
+  <div ref="rootRef" class="search-box" :class="{ compact }">
     <div class="search-input-wrapper">
       <span class="search-icon">🔍</span>
       <input
