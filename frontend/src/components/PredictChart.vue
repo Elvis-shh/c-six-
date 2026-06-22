@@ -144,25 +144,7 @@ onBeforeUnmount(() => {
         <canvas ref="canvasRef"></canvas>
       </div>
 
-      <div v-if="currentInsight" class="insights-grid">
-        <div class="insight-card">
-          <div class="insight-header">
-            <span class="insight-icon">{{ currentInsight.trend === '增长' ? '📈' : '📉' }}</span>
-            <span class="insight-title">{{ currentInsight.name }}</span>
-          </div>
-          <div class="insight-body">
-            <p>
-              基于近年可用财报数据（R²={{ currentInsight.r2 }}），
-              预计 {{ currentInsight.name }} 将保持<strong>{{ currentInsight.trend }}</strong>趋势，
-              下一年达到 <strong>{{ currentInsight.predictedValue }} {{ currentInsight.unit }}</strong>，
-              同比变化 <strong :class="currentInsight.change > 0 ? 'up' : 'down'">{{ currentInsight.change > 0 ? '+' : '' }}{{ currentInsight.change }}%</strong>。
-            </p>
-          </div>
-        </div>
-      </div>
-      <div class="disclaimer">
-        ⚠️ 以上预测基于历史数据的简单线性回归，仅供参考，不构成投资建议。
-      </div>
+      <InsightPanel :insights="fullInsights" :loading="loading" />
     </template>
     <div v-else class="loading-text">可用于预测的连续历史指标不足</div>
   </div>

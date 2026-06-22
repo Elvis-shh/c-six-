@@ -69,3 +69,4 @@ management:
 logging:
   level:
     com.smartreport: ${LOG_LEVEL:INFO}
+    org.springframework.web.servlet.DispatcherServlet: ${WEB_LOG_LEVEL:DEBUG}
