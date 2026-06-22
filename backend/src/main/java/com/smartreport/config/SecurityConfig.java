@@ -46,10 +46,6 @@ public class SecurityConfig {
                                  "/api/v1/export/**").authenticated()
                 .anyRequest().permitAll()
             )
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
-import org.springframework.http.HttpStatus;
-
-// ... (after cors config)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .exceptionHandling(e -> e
                 .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
