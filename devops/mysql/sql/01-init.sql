@@ -255,6 +255,24 @@ CREATE TABLE IF NOT EXISTS report_quote_chunks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='财报原文切片';
 
 -- ============================================================
+-- 14.2 财报知识库切片
+-- ============================================================
+CREATE TABLE IF NOT EXISTS knowledge_chunks (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    domain VARCHAR(50) NOT NULL COMMENT '知识域，如 financial-report',
+    company_code VARCHAR(10) COMMENT '为空表示通用知识',
+    source_type VARCHAR(50) NOT NULL COMMENT 'annual_report/web_knowledge 等',
+    source_name VARCHAR(500) NOT NULL COMMENT '来源名称',
+    source_url VARCHAR(1000) COMMENT '来源URL',
+    page_no INT COMMENT '页码',
+    content TEXT NOT NULL COMMENT '知识片段正文',
+    embedding_json TEXT COMMENT '向量索引占位/本地向量JSON',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_kc_domain_company (domain, company_code),
+    FULLTEXT INDEX ft_kc_content (content)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='财报知识库切片';
+
+-- ============================================================
 -- 15. 用户搜索历史
 -- ============================================================
 CREATE TABLE IF NOT EXISTS user_search_history (

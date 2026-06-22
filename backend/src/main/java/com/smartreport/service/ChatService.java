@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -75,11 +76,19 @@ public class ChatService {
     }
 
     private List<RagContext> searchContexts(String message, String companyCode) {
-        List<RagContext> dbContexts = searchDatabaseContexts(message, companyCode, 5);
+        List<RagContext> dbContexts = CompletableFuture
+                .supplyAsync(() -> searchDatabaseContexts(message, companyCode, 5))
+                .completeOnTimeout(List.of(), 3, TimeUnit.SECONDS)
+                .exceptionally(ignored -> List.of())
+                .join();
         if (!dbContexts.isEmpty()) {
             return dbContexts;
         }
-        return aiEngineClient.search(message, companyCode, 5);
+        return CompletableFuture
+                .supplyAsync(() -> aiEngineClient.search(message, companyCode, 5))
+                .completeOnTimeout(List.of(), 8, TimeUnit.SECONDS)
+                .exceptionally(ignored -> List.of())
+                .join();
     }
 
     private List<RagContext> searchDatabaseContexts(String message, String companyCode, int topK) {

@@ -14,10 +14,18 @@ import java.util.List;
 public interface CompanyRepository extends JpaRepository<Company, String> {
 
     @Query("SELECT c FROM Company c WHERE c.status = 1 AND " +
-           "(c.name LIKE CONCAT('%', :keyword, '%') OR " +
-           "c.code LIKE CONCAT('%', :keyword, '%') OR " +
-           "c.shortName LIKE CONCAT('%', :keyword, '%'))")
+            "(c.name LIKE CONCAT('%', :keyword, '%') OR " +
+            "c.code LIKE CONCAT('%', :keyword, '%') OR " +
+            "c.shortName LIKE CONCAT('%', :keyword, '%'))")
     Page<Company> searchCompanies(@Param("keyword") String keyword, Pageable pageable);
+
+    @Query("SELECT c FROM Company c WHERE c.status = 1 AND c.code IN :codes AND " +
+            "(c.name LIKE CONCAT('%', :keyword, '%') OR " +
+            "c.code LIKE CONCAT('%', :keyword, '%') OR " +
+            "c.shortName LIKE CONCAT('%', :keyword, '%'))")
+    Page<Company> searchCompaniesInCodes(@Param("keyword") String keyword,
+                                         @Param("codes") List<String> codes,
+                                         Pageable pageable);
 
     List<Company> findByCodeIn(List<String> codes);
 

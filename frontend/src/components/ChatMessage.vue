@@ -9,10 +9,20 @@ const emit = defineEmits<{ followup: [question: string] }>()
 const html = computed(() => marked.parse(props.message.content || '...') as string)
 
 function normalizeSource(source: string) {
-  return source
+  const fileName = source.split(/[\\/]/).pop() || source
+  return fileName
     .replace(/_em_/g, '')
     .replace(/\.pdf/gi, '')
+    .replace(/第\s*\d+\s*页/gi, '')
     .replace(/_+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function sourceKey(source: string) {
+  return normalizeSource(source)
+    .toLowerCase()
+    .replace(/[：:]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -20,8 +30,9 @@ function normalizeSource(source: string) {
 const groupedRefs = computed(() => {
   const groups = new Map<string, { source: string; pages: number[]; snippets: string[] }>()
   for (const ref of props.message.refs || []) {
-    const source = normalizeSource(ref.source)
-    const existing = groups.get(source) || { source, pages: [], snippets: [] }
+    const source = normalizeSource(ref.source || '财报原文')
+    const key = sourceKey(ref.source || '财报原文')
+    const existing = groups.get(key) || { source, pages: [], snippets: [] }
     if (typeof ref.page === 'number' && !existing.pages.includes(ref.page)) {
       existing.pages.push(ref.page)
     }
@@ -29,9 +40,12 @@ const groupedRefs = computed(() => {
     if (snippet && !existing.snippets.includes(snippet)) {
       existing.snippets.push(snippet)
     }
-    groups.set(source, existing)
+    groups.set(key, existing)
   }
-  return [...groups.values()]
+  return [...groups.values()].map(item => ({
+    ...item,
+    pages: [...item.pages].sort((a, b) => a - b),
+  }))
 })
 </script>
 

@@ -22,9 +22,12 @@ let chart: Chart | null = null
 const metricOptions = computed(() =>
   Object.entries(insights.value || {}).map(([key, item], index) => ({ key, name: (item as any).name, index }))
 )
-
-const currentMetricKey = computed(() => metricOptions.value[selectedMetric.value]?.key)
-const currentInsight = computed(() => currentMetricKey.value ? insights.value?.[currentMetricKey.value] : null)
+const insightCards = computed(() =>
+  metricOptions.value.map(opt => ({
+    key: opt.key,
+    insight: insights.value?.[opt.key],
+  }))
+)
 
 async function load() {
   loading.value = true
@@ -43,59 +46,41 @@ async function load() {
 
 async function buildChart() {
   await nextTick()
-  if (!canvasRef.value || !predictData.value || !currentMetricKey.value) return
+  if (!canvasRef.value || !predictData.value || metricOptions.value.length === 0) return
   if (chart) chart.destroy()
 
   const data = predictData.value
-  const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6']
+  const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#14b8a6', '#e11d48', '#6366f1']
   const datasets: any[] = []
-  const baseKey = currentMetricKey.value
-  const currentName = currentInsight.value?.name || baseKey
-  const color = colors[selectedMetric.value % colors.length]
-  const actual = data.series.find((x: any) => x.key === baseKey && x.type === 'solid')
-  const predicted = data.series.find((x: any) => x.key === baseKey + '_pred')
-  const upper = data.series.find((x: any) => x.key === baseKey + '_upper')
-  const lower = data.series.find((x: any) => x.key === baseKey + '_lower')
-
-  if (actual) {
-    datasets.push({
-      label: currentName,
-      data: actual.values,
-      borderColor: color,
-      backgroundColor: color + '20',
-      borderWidth: 3,
-      pointRadius: 4,
-      tension: 0.2,
-      spanGaps: false,
-    })
-  }
-  if (predicted) {
-    datasets.push({
-      label: currentName + '（预测）',
-      data: predicted.values,
-      borderColor: color,
-      borderDash: [6, 3],
-      borderWidth: 2.5,
-      pointRadius: 4,
-      pointStyle: 'rectRounded',
-      tension: 0.2,
-      fill: false,
-    })
-  }
-  if (upper && lower) {
-    datasets.push({
-      label: currentName + ' 置信区间',
-      data: upper.values,
-      borderColor: 'transparent',
-      backgroundColor: color + '18',
-      fill: {
-        target: { values: lower.values },
-        above: color + '18',
-      },
-      pointRadius: 0,
-      tension: 0.2,
-    })
-  }
+  metricOptions.value.forEach((metric, index) => {
+    const color = colors[index % colors.length]
+    const actual = data.series.find((x: any) => x.key === metric.key && x.type === 'solid')
+    const predicted = data.series.find((x: any) => x.key === metric.key + '_pred')
+    if (actual) {
+      datasets.push({
+        label: metric.name,
+        data: actual.values,
+        borderColor: color,
+        backgroundColor: color + '18',
+        borderWidth: 2.5,
+        pointRadius: 3,
+        tension: 0.2,
+        spanGaps: false,
+      })
+    }
+    if (predicted) {
+      datasets.push({
+        label: metric.name + '（预测）',
+        data: predicted.values,
+        borderColor: color,
+        borderDash: [6, 4],
+        borderWidth: 2,
+        pointRadius: 2,
+        tension: 0.2,
+        fill: false,
+      })
+    }
+  })
 
   chart = new Chart(canvasRef.value, {
     type: 'line',
@@ -144,7 +129,6 @@ async function buildChart() {
 
 watch(() => props.companyCode, load, { immediate: true })
 watch(predictData, buildChart)
-watch(selectedMetric, buildChart)
 
 onBeforeUnmount(() => {
   if (chart) chart.destroy()
@@ -156,23 +140,29 @@ onBeforeUnmount(() => {
     <div v-if="loading" class="loading-text">预测计算中...</div>
     <div v-else-if="error" class="error-text">{{ error }}</div>
     <template v-else-if="predictData && predictData.series?.length">
-      <div class="chart-tabs">
-        <button
-          v-for="opt in metricOptions"
-          :key="opt.key"
-          class="chart-tab"
-          :class="{ active: opt.index === selectedMetric }"
-          @click="selectedMetric = opt.index"
-        >
-          {{ opt.name }}
-        </button>
-      </div>
       <div class="predict-chart-wrap">
         <canvas ref="canvasRef"></canvas>
       </div>
 
-      <!-- Story 5.2: 预测洞察面板（4 段文案 + 免责声明） -->
-      <InsightPanel :insights="fullInsights" />
+      <div v-if="currentInsight" class="insights-grid">
+        <div class="insight-card">
+          <div class="insight-header">
+            <span class="insight-icon">{{ currentInsight.trend === '增长' ? '📈' : '📉' }}</span>
+            <span class="insight-title">{{ currentInsight.name }}</span>
+          </div>
+          <div class="insight-body">
+            <p>
+              基于近年可用财报数据（R²={{ currentInsight.r2 }}），
+              预计 {{ currentInsight.name }} 将保持<strong>{{ currentInsight.trend }}</strong>趋势，
+              下一年达到 <strong>{{ currentInsight.predictedValue }} {{ currentInsight.unit }}</strong>，
+              同比变化 <strong :class="currentInsight.change > 0 ? 'up' : 'down'">{{ currentInsight.change > 0 ? '+' : '' }}{{ currentInsight.change }}%</strong>。
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="disclaimer">
+        ⚠️ 以上预测基于历史数据的简单线性回归，仅供参考，不构成投资建议。
+      </div>
     </template>
     <div v-else class="loading-text">可用于预测的连续历史指标不足</div>
   </div>
@@ -201,35 +191,6 @@ onBeforeUnmount(() => {
   padding: 20px;
   border: 1px solid var(--border, #e8ecf1);
   margin-bottom: 24px;
-}
-
-.chart-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.chart-tab {
-  padding: 8px 18px;
-  border: 1px solid var(--border, #e8ecf1);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.chart-tab:hover {
-  border-color: var(--primary, #3b82f6);
-  color: var(--primary, #3b82f6);
-}
-
-.chart-tab.active {
-  background: var(--primary, #3b82f6);
-  color: #fff;
-  border-color: var(--primary, #3b82f6);
 }
 
 

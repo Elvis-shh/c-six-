@@ -4,6 +4,7 @@ import com.smartreport.models.dto.*;
 import com.smartreport.models.entity.Company;
 import com.smartreport.models.entity.FinancialIndicator;
 import com.smartreport.models.entity.FinancialReport;
+import com.smartreport.repository.CompanyIndustryTagRepository;
 import com.smartreport.repository.CompanyRepository;
 import com.smartreport.repository.FinancialIndicatorRepository;
 import com.smartreport.repository.FinancialReportRepository;
@@ -12,6 +13,7 @@ import com.smartreport.service.ReportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -23,13 +25,14 @@ import java.util.stream.Collectors;
 public class ReportServiceImpl implements ReportService {
 
     private final CompanyRepository companyRepository;
+    private final CompanyIndustryTagRepository companyIndustryTagRepository;
     private final FinancialReportRepository reportRepository;
     private final FinancialIndicatorRepository indicatorRepository;
     private final IndicatorService indicatorService;
 
     private static final int KPI_LIMIT = 4;
     private static final int TIMELINE_LIMIT = 5;
-    private static final List<String> FIXED_CORE_KEYS = List.of("revenue", "profit", "grossMargin", "debtRatio", "cashFlow");
+    private static final List<String> FALLBACK_CORE_KEYS = List.of("revenue", "profit", "cashFlow", "netMargin", "debtRatio", "roe", "grossMargin", "rdExpenseRatio", "eps");
 
     @Override
     public KpiResponse getKpi(String companyCode) {
@@ -47,7 +50,7 @@ public class ReportServiceImpl implements ReportService {
 
         Map<String, BigDecimal> currentMap = toValueMap(indicators);
         Map<String, BigDecimal> prevMap = toValueMap(prevIndicators);
-        List<String> selectedKeys = selectFixedCoreKeys(List.of(latest), Map.of(latest.getId(), currentMap), KPI_LIMIT);
+        List<String> selectedKeys = selectCoreKeys(company, List.of(latest), Map.of(latest.getId(), currentMap), KPI_LIMIT);
 
         List<KpiItem> kpis = new ArrayList<>();
         for (String key : selectedKeys) {
@@ -96,12 +99,14 @@ public class ReportServiceImpl implements ReportService {
         }
 
         if (metricKeys == null || metricKeys.isEmpty()) {
-            metricKeys = selectFixedCoreKeys(reports, dataMap, TIMELINE_LIMIT);
+            Company company = companyRepository.findById(companyCode).orElse(null);
+            metricKeys = selectCoreKeys(company, reports, dataMap, TIMELINE_LIMIT);
         } else {
             List<String> requested = metricKeys.stream()
                     .filter(key -> hasMetric(dataMap, reports, key))
                     .toList();
-            metricKeys = requested.isEmpty() ? selectFixedCoreKeys(reports, dataMap, TIMELINE_LIMIT) : requested;
+            Company company = companyRepository.findById(companyCode).orElse(null);
+            metricKeys = requested.isEmpty() ? selectCoreKeys(company, reports, dataMap, TIMELINE_LIMIT) : requested;
         }
 
         List<TimelineResponse.MetricSeries> series = new ArrayList<>();
@@ -158,10 +163,12 @@ public class ReportServiceImpl implements ReportService {
         return ascending;
     }
 
-    private List<String> selectFixedCoreKeys(List<FinancialReport> reports,
-                                             Map<Long, Map<String, BigDecimal>> dataMap,
-                                             int limit) {
-        List<String> selected = FIXED_CORE_KEYS.stream()
+    private List<String> selectCoreKeys(Company company,
+                                        List<FinancialReport> reports,
+                                        Map<Long, Map<String, BigDecimal>> dataMap,
+                                        int limit) {
+        List<String> candidateKeys = coreKeyCandidates(company);
+        List<String> selected = candidateKeys.stream()
                 .filter(key -> hasMetric(dataMap, reports, key))
                 .limit(limit)
                 .collect(Collectors.toCollection(ArrayList::new));
@@ -175,6 +182,20 @@ public class ReportServiceImpl implements ReportService {
                     .ifPresent(selected::add);
         }
         return selected.stream().distinct().toList();
+    }
+
+    private List<String> coreKeyCandidates(Company company) {
+        List<String> covered = new ArrayList<>();
+        if (company != null && companyIndustryTagRepository.existsByCompanyCodeAndTag(company.getCode(), "中证A50")) {
+            covered.addAll(indicatorRepository.findMostCoveredKeysByIndustryAndSource(
+                    "中证A50", "crawler", PageRequest.of(0, 12)));
+        }
+        for (String key : FALLBACK_CORE_KEYS) {
+            if (!covered.contains(key)) {
+                covered.add(key);
+            }
+        }
+        return covered;
     }
 
     private boolean hasMetric(Map<Long, Map<String, BigDecimal>> dataMap,

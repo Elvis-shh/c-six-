@@ -19,6 +19,8 @@ public interface FinancialReportRepository extends JpaRepository<FinancialReport
 
     List<FinancialReport> findByCompanyCodeOrderByReportYearDesc(String companyCode);
 
+    List<FinancialReport> findByCompanyCodeInAndSourceAndStatus(List<String> companyCodes, String source, Integer status);
+
     Optional<FinancialReport> findByCompanyCodeAndReportYearAndReportType(String companyCode, Integer reportYear, String reportType);
 
     @Query("SELECT fr FROM FinancialReport fr WHERE fr.companyCode = :companyCode AND fr.status = 1 ORDER BY fr.reportYear DESC, CASE WHEN fr.source = 'crawler' THEN 0 ELSE 1 END, fr.id DESC")

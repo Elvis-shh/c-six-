@@ -2,9 +2,11 @@ package com.smartreport.service.impl;
 
 import com.smartreport.models.dto.CrawlerDtos.*;
 import com.smartreport.models.entity.Company;
+import com.smartreport.models.entity.CompanyIndustryTag;
 import com.smartreport.models.entity.FinancialReport;
 import com.smartreport.models.entity.ReportCrawlTask;
 import com.smartreport.models.entity.ReportFile;
+import com.smartreport.repository.CompanyIndustryTagRepository;
 import com.smartreport.repository.CompanyRepository;
 import com.smartreport.repository.FinancialReportRepository;
 import com.smartreport.repository.ReportCrawlTaskRepository;
@@ -30,6 +32,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ReportCrawlerServiceImpl implements ReportCrawlerService {
     private final CompanyRepository companyRepository;
+    private final CompanyIndustryTagRepository companyIndustryTagRepository;
     private final ReportCrawlTaskRepository taskRepository;
     private final FinancialReportRepository reportRepository;
     private final ReportFileRepository reportFileRepository;
@@ -66,14 +69,15 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                 }
             }
         }
-        runPendingAsync();
         return CrawlStartResponse.builder().created(created).skipped(skipped).totalCandidates(companies.size()).build();
     }
 
     private List<Company> loadCompanies(CrawlStartRequest request) {
         int limit = request.getLimit() == null ? 30 : request.getLimit();
-        if ("CSI300".equalsIgnoreCase(request.getIndexCode()) || "000300".equals(request.getIndexCode())) {
-            List<AiIndexConstituent> constituents = fetchCsi300Constituents();
+        if ("CSI300".equalsIgnoreCase(request.getIndexCode()) || "000300".equals(request.getIndexCode())
+                || "CSI_A50".equalsIgnoreCase(request.getIndexCode()) || "A50".equalsIgnoreCase(request.getIndexCode()) || "000510".equals(request.getIndexCode())) {
+            boolean csiA50 = "CSI_A50".equalsIgnoreCase(request.getIndexCode()) || "A50".equalsIgnoreCase(request.getIndexCode()) || "000510".equals(request.getIndexCode());
+            List<AiIndexConstituent> constituents = fetchIndexConstituents(csiA50);
             List<Company> companies = new ArrayList<>();
             for (AiIndexConstituent item : constituents.stream().limit(limit).toList()) {
                 Company company = companyRepository.findById(item.getCode()).orElseGet(() -> companyRepository.save(Company.builder()
@@ -81,12 +85,23 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                         .name(item.getName())
                         .shortName(item.getName())
                         .market(item.getMarket())
-                        .industry("沪深300")
+                        .industry(item.getIndustry() != null && !item.getIndustry().isBlank() ? item.getIndustry() : (csiA50 ? "中证A50" : "沪深300"))
                         .status(1)
                         .build()));
                 if (company.getListingDate() == null && item.getListingDate() != null) {
                     company.setListingDate(LocalDate.parse(item.getListingDate()));
+                }
+                if (item.getIndustry() != null && !item.getIndustry().isBlank()) {
+                    company.setIndustry(item.getIndustry());
+                }
+                if (company.getListingDate() == null && item.getListingDate() != null || item.getIndustry() != null && !item.getIndustry().isBlank()) {
                     company = companyRepository.save(company);
+                }
+                if (csiA50 && !companyIndustryTagRepository.existsByCompanyCodeAndTag(company.getCode(), "中证A50")) {
+                    companyIndustryTagRepository.save(CompanyIndustryTag.builder()
+                            .companyCode(company.getCode())
+                            .tag("中证A50")
+                            .build());
                 }
                 companies.add(company);
             }
@@ -98,14 +113,14 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
                 .toList();
     }
 
-    private List<AiIndexConstituent> fetchCsi300Constituents() {
+    private List<AiIndexConstituent> fetchIndexConstituents(boolean csiA50) {
         RestClient client = RestClient.builder().baseUrl(aiEngineUrl).build();
         AiIndexResponse response = client.get()
-                .uri("/ai/v1/indices/csi300/constituents")
+                .uri(csiA50 ? "/ai/v1/indices/csi-a50/constituents" : "/ai/v1/indices/csi300/constituents")
                 .retrieve()
                 .body(AiIndexResponse.class);
         if (response == null || response.getData() == null || response.getData().isEmpty()) {
-            throw new IllegalStateException("沪深300成分股获取失败");
+            throw new IllegalStateException((csiA50 ? "中证A50" : "沪深300") + "成分股获取失败");
         }
         return response.getData();
     }
@@ -125,10 +140,17 @@ public class ReportCrawlerServiceImpl implements ReportCrawlerService {
     @Async("crawlerExecutor")
     @Override
     public void runPendingAsync() {
-        List<ReportCrawlTask> tasks = taskRepository.findAll().stream()
+        List<ReportCrawlTask> pending = taskRepository.findAll().stream()
                 .filter(task -> "pending".equals(task.getStatus()))
+                .toList();
+        List<ReportCrawlTask> priorityTasks = pending.stream()
+                .filter(task -> task.getReportYear() != null && task.getReportYear() >= 2021 && task.getReportYear() <= 2025)
+                .filter(task -> companyIndustryTagRepository.existsByCompanyCodeAndTag(task.getCompanyCode(), "中证A50"))
                 .limit(100)
                 .toList();
+        List<ReportCrawlTask> tasks = priorityTasks.isEmpty()
+                ? pending.stream().limit(100).toList()
+                : priorityTasks;
         for (ReportCrawlTask task : tasks) {
             crawlOne(task);
             sleepQuietly(600L);

@@ -27,4 +27,17 @@ public interface FinancialIndicatorRepository extends JpaRepository<FinancialInd
            "ORDER BY fr.reportYear DESC")
     List<FinancialIndicator> findByCompanyCodeAndKeyOrderByYearDesc(
             @Param("companyCode") String companyCode, @Param("key") String key);
+
+    @Query("""
+            SELECT fi.indicatorKey
+            FROM FinancialIndicator fi
+            JOIN FinancialReport fr ON fi.reportId = fr.id
+            JOIN Company c ON fr.companyCode = c.code
+            WHERE c.industry = :industry AND fr.source = :source AND fr.status = 1
+            GROUP BY fi.indicatorKey
+            ORDER BY COUNT(DISTINCT fr.id) DESC
+            """)
+    List<String> findMostCoveredKeysByIndustryAndSource(@Param("industry") String industry,
+                                                        @Param("source") String source,
+                                                        org.springframework.data.domain.Pageable pageable);
 }

@@ -48,6 +48,7 @@ class ReportFetchService:
 
     SEARCH_ALIASES = {
         "601211": ["国泰君安", "国泰海通"],
+        "601857": ["中国石油", "中国石油天然气股份有限公司"],
     }
 
     async def fetch_report(self, company_code: str, year: int, report_type: str = "annual") -> dict:
@@ -186,7 +187,13 @@ class ReportFetchService:
         if any(word in title for word in report_config["exclude"]):
             return False
         return any(
-            f"{year}{keyword}" in title or f"{year}年{keyword}" in title or f"{year} 年{keyword}" in title
+            f"{year}{keyword}" in title
+            or f"{year}年{keyword}" in title
+            or f"{year} 年{keyword}" in title
+            or f"{year}年度报告" in title
+            or f"{year} 年度报告" in title
+            or f"{year}半年度报告" in title
+            or f"{year} 半年度报告" in title
             for keyword in report_config["title_keywords"]
         )
 

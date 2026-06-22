@@ -22,12 +22,16 @@ export function useChat(companyCode: Ref<string>) {
 
     try {
       const response = await sendChatMessage({ companyCode: companyCode.value, message, sessionId: store.sessionId })
+      if (!response.ok || !response.body) {
+        throw new Error(`chat request failed: ${response.status}`)
+      }
       const reader = response.body?.getReader()
       if (!reader) throw new Error('浏览器不支持流式响应')
 
       const decoder = new TextDecoder()
       let buffer = ''
       let content = ''
+      let receivedToken = false
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -41,6 +45,7 @@ export function useChat(companyCode: Ref<string>) {
             store.progress = Math.max(store.progress, 52)
           }
           if (payload.type === 'token') {
+            receivedToken = true
             store.progress = Math.min(94, store.progress + 2)
             content += payload.content
             store.updateLastAssistant(content)
@@ -54,6 +59,9 @@ export function useChat(companyCode: Ref<string>) {
             store.progress = 100
           }
         }
+      }
+      if (!receivedToken) {
+        throw new Error('no chat tokens received')
       }
     } catch (error) {
       store.updateLastAssistant('智能问答暂时不可用，请稍后重试。')
