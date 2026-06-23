@@ -24,6 +24,9 @@ public class Company {
     @Column(name = "short_name", length = 50)
     private String shortName;
 
+    @Column(length = 50)
+    private String pinyin;
+
     @Column(length = 100)
     private String industry;
 

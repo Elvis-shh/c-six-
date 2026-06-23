@@ -22,7 +22,8 @@ public interface CompanyRepository extends JpaRepository<Company, String> {
     @Query("SELECT c FROM Company c WHERE c.status = 1 AND c.code IN :codes AND " +
             "(c.name LIKE CONCAT('%', :keyword, '%') OR " +
             "c.code LIKE CONCAT('%', :keyword, '%') OR " +
-            "c.shortName LIKE CONCAT('%', :keyword, '%'))")
+            "c.shortName LIKE CONCAT('%', :keyword, '%') OR " +
+            "c.pinyin LIKE CONCAT('%', :keyword, '%'))")
     Page<Company> searchCompaniesInCodes(@Param("keyword") String keyword,
                                          @Param("codes") List<String> codes,
                                          Pageable pageable);

@@ -2,6 +2,7 @@
 import { ref, watch, onBeforeUnmount, computed, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import type { TimelineResponse } from '@/types'
+import { cleanIndicatorName } from '@/utils'
 
 Chart.register(...registerables)
 
@@ -16,7 +17,7 @@ let chart: Chart | null = null
 const selectedMetric = ref(0)
 
 const metricOptions = computed(() =>
-  props.timeline?.metrics?.map((m, i) => ({ key: m.key, name: m.name, index: i })) ?? []
+  props.timeline?.metrics?.map((m, i) => ({ key: m.key, name: m.name, unit: m.unit, index: i })) ?? []
 )
 
 const currentMetric = computed(() => props.timeline?.metrics?.[selectedMetric.value])
@@ -34,7 +35,7 @@ async function buildChart() {
     data: {
       labels: props.timeline.years,
       datasets: [{
-        label: metric.name + ' (' + metric.unit + ')',
+        label: metric.name,
         data: metric.values.map(v => v != null ? Number(v) : null),
         borderColor: colors[selectedMetric.value % colors.length],
         backgroundColor: colors[selectedMetric.value % colors.length] + '20',
@@ -57,17 +58,32 @@ async function buildChart() {
               if (v == null) return '—'
               if (metric.unit === '%') return Number(v).toFixed(1) + '%'
               if (metric.unit === '亿') return Number(v).toFixed(2) + ' 亿'
+              if (metric.unit === '万') return Number(v).toFixed(2) + ' 万'
               return Number(v).toLocaleString('zh-CN')
             },
           },
         },
       },
       scales: {
+        x: {
+          title: {
+            display: true,
+            text: '年度',
+          },
+        },
         y: {
+          title: {
+            display: true,
+            text: metric.unit ? `${metric.name}（${metric.unit}）` : metric.name,
+          },
           ticks: {
             callback(v) {
               const n = Number(v)
               if (metric.unit === '%') return n.toFixed(0) + '%'
+              if (metric.unit === '亿') {
+                if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1) + '万亿'
+                return n.toFixed(1) + ' 亿'
+              }
               if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1) + '万'
               return n
             },
@@ -98,7 +114,7 @@ onBeforeUnmount(() => {
           :class="{ active: opt.index === selectedMetric }"
           @click="selectedMetric = opt.index"
         >
-          {{ opt.name }}
+          {{ cleanIndicatorName(opt.name) }}<span v-if="opt.unit">（{{ opt.unit }}）</span>
         </button>
       </div>
       <div class="chart-container">

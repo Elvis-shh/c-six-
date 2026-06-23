@@ -46,4 +46,9 @@ public class UploadController {
         uploadService.confirm(taskId, request);
         return ApiResponse.success(null);
     }
+
+    @GetMapping("/crawl-progress/{companyCode}")
+    public ApiResponse<String> crawlProgress(@PathVariable String companyCode) {
+        return ApiResponse.success(uploadService.getCrawlProgress(companyCode));
+    }
 }

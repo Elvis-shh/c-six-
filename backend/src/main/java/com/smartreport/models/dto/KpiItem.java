@@ -19,4 +19,5 @@ public class KpiItem {
     private String unit;
     private BigDecimal yoy;
     private String trend;  // up / down / down_good
+    private String explanation;
 }

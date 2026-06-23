@@ -50,7 +50,7 @@ computed(() => {
           <span class="header-code">{{ kpiData.company.code }}</span>
           <span class="header-year">{{ kpiData.reportYear }} 年报</span>
         </div>
-        <FileUpload class="header-upload" />
+        <FileUpload class="header-upload" :company-code="code" :company-name="kpiData.company.name" />
       </div>
 
       <!-- Story 3.1: KPI 卡片 -->
@@ -71,10 +71,16 @@ computed(() => {
         <TrendChart :timeline="timelineData" />
       </section>
 
-      <!-- Story 3.4: 指标详解 -->
+      <!-- Story 3.4: 核心指标详解 -->
       <section class="dashboard-section">
         <h2>🔍 核心指标详解</h2>
-        <IndicatorTable :company-code="code" />
+        <IndicatorTable :company-code="code" :max-sort-order="10" />
+      </section>
+
+      <!-- 其他指标分析 -->
+      <section class="dashboard-section">
+        <h2>📝 其他指标分析</h2>
+        <IndicatorTable :company-code="code" :min-sort-order="11" />
       </section>
 
       <!-- Story 4.1 & 4.2: 亮点与风险 -->

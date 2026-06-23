@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onBeforeUnmount } from 'vue'
 import type { KpiItem } from '@/types'
+import { cleanIndicatorName } from '@/utils'
 
 const props = defineProps<{ kpis: KpiItem[] }>()
 
@@ -72,7 +73,7 @@ const iconMap: Record<string, string> = {
     <div v-for="kpi in kpis" :key="kpi.key" class="kpi-card">
       <div class="kpi-header">
         <span class="kpi-icon">{{ iconMap[kpi.key] || '📊' }}</span>
-        <span class="kpi-name">{{ kpi.name }}</span>
+        <span class="kpi-name">{{ cleanIndicatorName(kpi.name) }}<span v-if="kpi.unit" class="kpi-unit">（{{ kpi.unit }}）</span><span v-if="kpi.explanation" class="kpi-tooltip" :data-tip="kpi.explanation">?</span></span>
       </div>
       <div class="kpi-value">{{ formatValue(kpi) }}</div>
       <div class="kpi-footer">
@@ -122,6 +123,60 @@ const iconMap: Record<string, string> = {
   font-size: 14px;
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+.kpi-unit {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.kpi-tooltip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg-muted, #e8ecf1);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: help;
+  position: relative;
+  flex-shrink: 0;
+}
+.kpi-tooltip:hover::after,
+.kpi-tooltip:focus::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: pre-wrap;
+  max-width: 300px;
+  width: max-content;
+  padding: 10px 14px;
+  border-radius: 8px;
+  line-height: 1.6;
+  z-index: 100;
+  pointer-events: none;
+}
+.kpi-tooltip:hover::before,
+.kpi-tooltip:focus::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1e293b;
+  z-index: 100;
+  pointer-events: none;
 }
 
 .kpi-value {

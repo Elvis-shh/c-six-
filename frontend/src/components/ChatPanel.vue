@@ -38,7 +38,7 @@ async function submit(text = input.value) {
       </header>
 
       <div ref="messagesEl" class="chat-messages">
-        <div v-if="store.messages.length === 0" class="welcome">
+        <div v-if="store.messages.length === 0 && !store.isLoading" class="welcome">
           <h3>可以直接问我财报问题</h3>
           <p>我会先查财报原文和行业常识，再用尽量好懂的话解释，并给出来源。</p>
           <button v-for="item in suggestions" :key="item" @click="submit(item)">{{ item }}</button>

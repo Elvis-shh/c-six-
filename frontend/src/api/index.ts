@@ -120,6 +120,7 @@ export const uploadReport = (file: File, onUploadProgress?: (percent: number) =>
   formData.append('file', file)
   return api.post<ApiResponse<UploadTaskResponse>>('/upload/report', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
     onUploadProgress: event => {
       if (event.total && onUploadProgress) onUploadProgress(Math.round((event.loaded / event.total) * 100))
     },
@@ -129,7 +130,7 @@ export const uploadReport = (file: File, onUploadProgress?: (percent: number) =>
 export const getUploadTask = (taskId: string) =>
   api.get<ApiResponse<UploadTaskStatus>>(`/upload/tasks/${taskId}`)
 
-export const confirmExtraction = (taskId: string, payload: { companyCode: string; reportYear: number; data: Record<string, ExtractedIndicator> }) =>
+export const confirmExtraction = (taskId: string, payload: { companyCode: string; companyName?: string; industry?: string; reportYear: number; data: Record<string, ExtractedIndicator> }) =>
   api.post<ApiResponse<void>>(`/upload/tasks/${taskId}/confirm`, payload)
 
 // ============================================================
