@@ -58,6 +58,10 @@ public class ParseDtos {
         private Integer pageCount;
         private Integer textLength;
         private Map<String, AiExtractedIndicator> extractedData;
+        private String companyCode;
+        private String companyName;
+        private Integer reportYear;
+        private String industry;
     }
 
     @Data

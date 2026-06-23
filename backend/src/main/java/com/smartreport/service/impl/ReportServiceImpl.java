@@ -68,6 +68,7 @@ public class ReportServiceImpl implements ReportService {
                     .unit(indicatorService.getUnit(key))
                     .yoy(yoy)
                     .trend(trend)
+                    .explanation(indicatorService.getExplanation(key))
                     .build());
         }
 

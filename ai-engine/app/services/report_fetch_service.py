@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -100,12 +101,81 @@ class ReportFetchService:
 
         text = "\n".join(text_parts)
         extracted = await ner_service.extract(text)
+
+        # Extract company code and year from first page
+        first_page = text_parts[0] if text_parts else ""
+        company_code = self._extract_company_code(first_page)
+        company_name = self._extract_company_name(first_page)
+        report_year = self._extract_report_year(first_page)
+
+        # Detect industry from first few pages
+        head_text = "\n".join(text_parts[:6]) if len(text_parts) > 1 else text
+        industry = self._detect_industry(head_text)
+
         return {
             "filePath": str(path),
             "pageCount": len(text_parts),
             "textLength": len(text),
             "extractedData": extracted,
+            "companyCode": company_code,
+            "companyName": company_name,
+            "reportYear": report_year,
+            "industry": industry,
         }
+
+    def _extract_company_code(self, text: str) -> str | None:
+        m = re.search(r"公司代码[：:]\s*(\d{6})", text)
+        if m:
+            return m.group(1)
+        m = re.search(r"股票代码[：:]\s*(\d{6})", text)
+        return m.group(1) if m else None
+
+    def _extract_company_name(self, text: str) -> str | None:
+        m = re.search(r"公司简称[：:]\s*(\S+)", text)
+        return m.group(1) if m else None
+
+    def _extract_report_year(self, text: str) -> int | None:
+        m = re.search(r"(\d{4})\s*年[度\s]*(?:年度)?报告", text)
+        if m:
+            return int(m.group(1))
+        m = re.search(r"(\d{4})\s*年[度\s]*年报", text)
+        return int(m.group(1)) if m else None
+
+    def _detect_industry(self, text: str) -> str:
+        """Detect industry from company description in annual report."""
+        rules = [
+            (["银行", "存款", "贷款", "利息收入", "净息差"], "银行"),
+            (["证券", "券商", "投行", "经纪业务", "自营业务"], "证券"),
+            (["保险", "保费", "赔付", "再保险", "精算"], "保险"),
+            (["白酒", "酿酒", "酒类", "基酒", "勾调"], "白酒"),
+            (["水泥", "熟料", "混凝土", "骨料"], "建材"),
+            (["煤炭", "煤矿", "采掘", "煤化工", "洗煤"], "煤炭"),
+            (["石油", "油田", "炼化", "成品油", "勘探开发"], "石油石化"),
+            (["电力", "发电", "电网", "水电", "火电", "核电", "风电", "光伏", "新能源"], "电力"),
+            (["汽车", "整车", "乘用车", "商用车", "新能源车"], "汽车"),
+            (["芯片", "半导体", "晶圆", "集成电路", "封装测试"], "半导体"),
+            (["医药", "制药", "药品", "制剂", "临床", "新药", "仿制药", "CXO", "生物药"], "医药"),
+            (["医疗器械", "影像设备", "体外诊断", "植入"], "医疗器械"),
+            (["钢铁", "钢材", "粗钢", "热轧", "冷轧"], "钢铁"),
+            (["有色金属", "铜矿", "铝业", "黄金", "稀土", "锂业", "钴业"], "有色金属"),
+            (["房地产", "地产", "物业", "楼盘", "交付面积"], "房地产"),
+            (["建筑", "施工", "基建", "工程承包", "总承包"], "建筑"),
+            (["航空", "机场", "航司", "旅客运输量", "客座率"], "航空"),
+            (["铁路", "高铁", "轨道交通", "动车组"], "交通运输"),
+            (["港口", "航运", "集装箱", "吞吐量"], "交通运输"),
+            (["食品", "饮料", "乳业", "肉制品", "调味品", "食用油"], "食品饮料"),
+            (["家电", "空调", "冰箱", "洗衣机", "小家电"], "家电"),
+            (["化工", "化学原料", "精细化工", "化肥", "农药"], "化工"),
+            (["通信", "电信", "5G", "基站", "光纤", "移动通信"], "通信"),
+            (["软件", "IT服务", "云计算", "人工智能", "大数据"], "信息技术"),
+            (["消费电子", "手机", "可穿戴", "智能终端"], "消费电子"),
+            (["零售", "超市", "百货", "连锁", "电商"], "商贸零售"),
+        ]
+        for keywords, industry in rules:
+            score = sum(1 for kw in keywords if kw in text)
+            if score >= 2:
+                return industry
+        return "其他行业"
 
     async def extract_quote_chunks(self, file_path: str) -> list[dict]:
         path = Path(file_path)

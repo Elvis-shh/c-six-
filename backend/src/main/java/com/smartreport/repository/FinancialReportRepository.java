@@ -28,4 +28,6 @@ public interface FinancialReportRepository extends JpaRepository<FinancialReport
 
     @Query("SELECT fr FROM FinancialReport fr WHERE fr.companyCode = :companyCode ORDER BY fr.reportYear DESC, CASE WHEN fr.status = 1 THEN 0 ELSE 1 END, CASE WHEN fr.source = 'crawler' THEN 0 ELSE 1 END, fr.id DESC")
     List<FinancialReport> findByCompanyCodeOrderForDisplayIncludingParsed(@Param("companyCode") String companyCode);
+
+    boolean existsByCompanyCodeAndReportYearAndSource(String companyCode, Integer reportYear, String source);
 }

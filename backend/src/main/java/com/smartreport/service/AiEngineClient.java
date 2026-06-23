@@ -4,9 +4,12 @@ import com.smartreport.models.dto.ChatModels.GenerateRequest;
 import com.smartreport.models.dto.ChatModels.RagContext;
 import com.smartreport.models.dto.ChatModels.RagSearchRequest;
 import com.smartreport.models.dto.ChatModels.RagSearchResponse;
+import com.smartreport.models.dto.ParseDtos.AiParseReportResponse;
+import com.smartreport.models.dto.ParseDtos.AiParseReportRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -14,6 +17,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 @Slf4j
@@ -57,5 +61,24 @@ public class AiEngineClient {
                     }
                     return null;
                 });
+    }
+
+    public AiParseReportResponse parseReport(String filePath) {
+        return restClient.post()
+                .uri("/ai/v1/reports/parse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new AiParseReportRequest(filePath))
+                .retrieve()
+                .body(AiParseReportResponse.class);
+    }
+
+    public Map<String, Object> batchFetchParse(String companyCode, int years) {
+        Map<String, Object> body = Map.of("companyCode", companyCode, "years", years);
+        return restClient.post()
+                .uri("/ai/v1/reports/batch-fetch-parse")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(Map.class);
     }
 }

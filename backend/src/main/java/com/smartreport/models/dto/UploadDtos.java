@@ -30,6 +30,10 @@ public class UploadDtos {
         private String message;
         private Integer percent;
         private Map<String, ExtractedIndicator> extractedData;
+        private String companyCode;
+        private String companyName;
+        private Integer reportYear;
+        private String industry;
     }
 
     @Data
@@ -48,6 +52,8 @@ public class UploadDtos {
     @AllArgsConstructor
     public static class ConfirmExtractionRequest {
         private String companyCode;
+        private String companyName;
+        private String industry;
         private Integer reportYear;
         private Map<String, ExtractedIndicator> data;
     }

@@ -259,18 +259,20 @@ class RegexExtractor:
 
     def _normalize_statement_value(self, value: float, context: str) -> float:
         compact_context = re.sub(r"\s+", "", context)
+        # Only match explicit unit declarations, not bare "万元"/"元" in narrative text
         if "万亿" in compact_context or "萬億" in compact_context:
             return value * 10000
         if "百万元" in compact_context or "百萬元" in compact_context:
             return value / 100
         if "千元" in compact_context:
             return value / 100000
-        if "万元" in compact_context or "萬元" in compact_context:
+        if "单位：万元" in compact_context or "单位:万元" in compact_context or "單位：萬元" in compact_context or "單位:萬元" in compact_context:
             return value / 10000
-        if "单位：元" in compact_context or "單位：元" in compact_context or "单位:元" in compact_context or "單位:元" in compact_context or "（元）" in compact_context:
+        if "单位：元" in compact_context or "单位:元" in compact_context or "單位：元" in compact_context or "單位:元" in compact_context or "（元）" in compact_context:
             return value / 100000000
-        # Statement continuation pages often omit the unit; for A-share annual reports
-        # large table values almost always continue the prior page's "万元" convention.
+        # No explicit unit declaration on this page — infer from value magnitude
+        if value > 100000000:
+            return value / 100000000
         if value > 1000000:
             return value / 10000
         if value > 10000:

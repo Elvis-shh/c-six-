@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +41,8 @@ public class ChatService {
         try {
             sendJson(emitter, "thinking", "正在检索财报上下文...");
             Company company = companyRepository.findById(companyCode).orElse(null);
-            List<RagContext> contexts = searchContexts(message, companyCode);
+            String companyName = company != null ? company.getName() : companyCode;
+            List<RagContext> contexts = searchContexts(message, companyCode, companyName);
 
             GenerateRequest request = GenerateRequest.builder()
                     .companyCode(companyCode)
@@ -75,9 +78,9 @@ public class ChatService {
         emitter.send(SseEmitter.event().data(objectMapper.writeValueAsString(new StreamEvent(type, content))));
     }
 
-    private List<RagContext> searchContexts(String message, String companyCode) {
+    private List<RagContext> searchContexts(String message, String companyCode, String companyName) {
         List<RagContext> dbContexts = CompletableFuture
-                .supplyAsync(() -> searchDatabaseContexts(message, companyCode, 5))
+                .supplyAsync(() -> searchDatabaseContexts(message, companyCode, companyName, 5))
                 .completeOnTimeout(List.of(), 3, TimeUnit.SECONDS)
                 .exceptionally(ignored -> List.of())
                 .join();
@@ -91,7 +94,7 @@ public class ChatService {
                 .join();
     }
 
-    private List<RagContext> searchDatabaseContexts(String message, String companyCode, int topK) {
+    private List<RagContext> searchDatabaseContexts(String message, String companyCode, String companyName, int topK) {
         List<String> tokens = extractTokens(message);
         if (tokens.isEmpty()) {
             return List.of();
@@ -117,7 +120,7 @@ public class ChatService {
             results.add(RagContext.builder()
                     .id(String.valueOf(chunk.getId()))
                     .content(chunk.getContent())
-                    .source(chunk.getSourceName())
+                    .source(formatSource(chunk.getSourceName(), companyName, chunk.getReportYear()))
                     .page(chunk.getPageNo())
                     .score(score)
                     .build());
@@ -164,4 +167,25 @@ public class ChatService {
     }
 
     private record StreamEvent(String type, Object content) {}
+
+    private static String formatSource(String source, String companyName, Integer reportYear) {
+        if (source == null || source.isBlank()) {
+            return companyName + "财报";
+        }
+        if (source.contains("常识库") || source.contains("知识库")) {
+            return source;
+        }
+        if (reportYear != null && reportYear > 0) {
+            return companyName + "_" + reportYear + "年年报";
+        }
+        Matcher yearMatcher = Pattern.compile("(\\d{4})\\s*年").matcher(source);
+        if (yearMatcher.find()) {
+            return companyName + "_" + yearMatcher.group(1) + "年年报";
+        }
+        Matcher pdfYear = Pattern.compile("(19|20)(\\d{2})").matcher(source);
+        if (pdfYear.find()) {
+            return companyName + "_" + pdfYear.group() + "年年报";
+        }
+        return companyName + "财报";
+    }
 }

@@ -6,15 +6,33 @@ import type { ChatMessage } from '@/types'
 const props = defineProps<{ message: ChatMessage }>()
 const emit = defineEmits<{ followup: [question: string] }>()
 
-const html = computed(() => marked.parse(props.message.content || '...') as string)
+function stripRefSuffix(text: string) {
+  return text
+    .replace(/\n*\[FOLLOWUPS\][\s\S]*$/i, '')
+    .replace(/\n*参考(?:资料|来源|文献|数据)?[：:][\s\S]*$/i, '')
+    .replace(/\n*引用(?:来源|文献)?[：:][\s\S]*$/i, '')
+    .replace(/\n*\[来源[：:][\s\S]*$/i, '')
+    .replace(/\n*(?:数据|资料)来源[：:][\s\S]*$/i, '')
+    .replace(/\n*以上(?:内容|数据|分析)?(?:来源于|参考|基于|引自).*$/i, '')
+    .replace(/\n*（(?:数据|资料|参考)来源[：:][^）]*）\s*$/i, '')
+    .replace(/\n*本回答(?:数据)?(?:来源于|参考|基于).*$/i, '')
+    .replace(/\n*详见[：:].*$/i, '')
+    .replace(/\n*查阅[：:].*$/i, '')
+    .replace(/\n*[-\s]*参考[：:][^\n]*$/, '')
+    .trim()
+}
+
+const html = computed(() => {
+  let text = props.message.content || '...'
+  text = stripRefSuffix(text)
+  return marked.parse(text) as string
+})
 
 function normalizeSource(source: string) {
   const fileName = source.split(/[\\/]/).pop() || source
   return fileName
-    .replace(/_em_/g, '')
     .replace(/\.pdf/gi, '')
     .replace(/第\s*\d+\s*页/gi, '')
-    .replace(/_+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -23,7 +41,7 @@ function sourceKey(source: string) {
   return normalizeSource(source)
     .toLowerCase()
     .replace(/[：:]/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/[_\s]+/g, ' ')
     .trim()
 }
 

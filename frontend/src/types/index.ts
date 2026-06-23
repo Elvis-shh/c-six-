@@ -22,6 +22,7 @@ export interface KpiItem {
   unit: string
   yoy: number | null
   trend: 'up' | 'down' | 'down_good'
+  explanation?: string
 }
 
 export interface KpiResponse {
@@ -133,6 +134,10 @@ export interface UploadTaskStatus {
   message: string
   percent: number
   extractedData?: Record<string, ExtractedIndicator>
+  companyCode?: string
+  companyName?: string
+  reportYear?: number
+  industry?: string
 }
 
 export interface IndicatorDetail {

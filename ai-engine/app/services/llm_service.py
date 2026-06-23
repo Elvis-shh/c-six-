@@ -74,6 +74,7 @@ class LLMService:
 
 请基于参考数据回答。如果参考数据不足，请明确说明不足，不要编造具体财报数值。
 只有参考数据里明确出现过的数字才能写进答案；没有把握时，改用定性描述，不要硬给具体数字。
+不要在回答末尾列出参考资料或引用来源，引用会由界面单独展示。
 """
         return [
             {"role": "system", "content": system_prompt},
@@ -81,13 +82,12 @@ class LLMService:
         ]
 
     def _fallback_answer(self, company_name: str, question: str, contexts: list[dict]) -> str:
-        context_text = "；".join(item.get("content", "") for item in contexts[:3])
         if "风险" in question:
-            return f"DeepSeek 暂时不可用。\n\n**怎么看**：{company_name} 的风险可以先看收入有没有放慢、利润率有没有下降、负债有没有升高、现金流有没有变弱。\n\n**为什么**：这些指标就像一家店的客流、净赚的钱、借款压力和真正收到的钱。参考资料：{context_text}。"
+            return f"DeepSeek 暂时不可用。\n\n**怎么看**：{company_name} 的风险可以先看收入有没有放慢、利润率有没有下降、负债有没有升高、现金流有没有变弱。\n\n**为什么**：这些指标就像一家店的客流、净赚的钱、借款压力和真正收到的钱。"
         elif "现金流" in question:
-            return f"DeepSeek 暂时不可用。\n\n**怎么看**：现金流要和净利润一起看。\n\n**为什么**：净利润像账面赚的钱，经营现金流更像真正收回来的钱。参考资料：{context_text}。"
+            return f"DeepSeek 暂时不可用。\n\n**怎么看**：现金流要和净利润一起看。\n\n**为什么**：净利润像账面赚的钱，经营现金流更像真正收回来的钱。"
         elif "盈利" in question or "赚钱" in question:
-            return f"DeepSeek 暂时不可用。\n\n**怎么看**：盈利能力先看收入、净利润和毛利率。\n\n**为什么**：收入像生意规模，净利润像最后留下的钱，毛利率像每单生意的赚钱空间。参考资料：{context_text}。"
-        return f"DeepSeek 暂时不可用。\n\n**怎么看**：我会先按财报原文和行业常识回答你的问题。\n\n**为什么**：这样可以减少凭空猜测。参考资料：{context_text}。"
+            return f"DeepSeek 暂时不可用。\n\n**怎么看**：盈利能力先看收入、净利润和毛利率。\n\n**为什么**：收入像生意规模，净利润像最后留下的钱，毛利率像每单生意的赚钱空间。"
+        return f"DeepSeek 暂时不可用。\n\n**怎么看**：我会先按财报原文和行业常识回答你的问题。\n\n**为什么**：这样可以减少凭空猜测。"
 
 llm_service = LLMService()

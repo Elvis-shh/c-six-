@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TimelineResponse } from '@/types'
+import { cleanIndicatorName } from '@/utils'
 
 defineProps<{
   timeline: TimelineResponse
@@ -20,7 +21,7 @@ defineProps<{
       <tbody>
         <tr v-for="metric in timeline.metrics" :key="metric.key">
           <td class="metric-name">
-            <span class="metric-label">{{ metric.name }}</span>
+            <span class="metric-label">{{ cleanIndicatorName(metric.name) }}</span>
             <span class="metric-unit">{{ metric.unit }}</span>
           </td>
           <td v-for="(val, i) in metric.values" :key="i">

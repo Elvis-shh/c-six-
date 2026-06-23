@@ -102,6 +102,7 @@ services:
     mem_limit: 768m
     volumes:
       - ./logs:/app/logs
+      - uploads-data:/app/data/uploads
     ports:
       - "8080:8080"
     networks:
@@ -131,6 +132,7 @@ services:
     mem_limit: 512m
     volumes:
       - ../downloads/reports_latest:/app/data/reports
+      - uploads-data:/app/data/uploads
     networks:
       - smartreport-net
     healthcheck:
@@ -170,3 +172,4 @@ volumes:
   mysql-data:
   redis-data:
   logs:
+  uploads-data:

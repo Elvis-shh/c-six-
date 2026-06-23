@@ -2,8 +2,9 @@
 import { ref, watch, computed } from 'vue'
 import type { IndicatorDetail } from '@/types'
 import { getReportIndicators } from '@/api'
+import { cleanIndicatorName } from '@/utils'
 
-const props = defineProps<{ companyCode: string }>()
+const props = defineProps<{ companyCode: string; maxSortOrder?: number; minSortOrder?: number }>()
 
 const loading = ref(false)
 const indicators = ref<IndicatorDetail[]>([])
@@ -25,6 +26,8 @@ const categoryNames: Record<string, string> = {
   profit: '利润',
   cashflow: '现金流',
   debt: '偿债',
+  ratio: '比率',
+  expense: '费用',
   efficiency: '效率',
   growth: '成长',
   valuation: '估值',
@@ -55,9 +58,16 @@ function evalClass(evaluation: string): string {
   return 'eval-neutral'
 }
 
+const filteredIndicators = computed(() => {
+  let list = indicators.value
+  if (props.maxSortOrder != null) list = list.filter(i => (i.sortOrder ?? 99) <= props.maxSortOrder!)
+  if (props.minSortOrder != null) list = list.filter(i => (i.sortOrder ?? 0) >= props.minSortOrder!)
+  return list
+})
+
 const groupedByCategory = computed(() => {
   const groups: Record<string, IndicatorDetail[]> = {}
-  for (const ind of indicators.value) {
+  for (const ind of filteredIndicators.value) {
     const cat = ind.category || 'other'
     if (!groups[cat]) groups[cat] = []
     groups[cat].push(ind)
@@ -76,8 +86,8 @@ const groupedByCategory = computed(() => {
           <div v-for="ind in items" :key="ind.key" class="indicator-card">
             <div class="ind-row">
               <span class="ind-name">
-                {{ ind.name }}
-                <span v-if="ind.explanation" class="ind-tooltip" :title="ind.explanation">?</span>
+                {{ cleanIndicatorName(ind.name) }}<span v-if="ind.unit" class="ind-unit">（{{ ind.unit }}）</span>
+                <span v-if="ind.explanation" class="ind-tooltip" :data-tip="ind.explanation">?</span>
               </span>
               <span class="ind-eval" :class="evalClass(ind.evaluation)">{{ ind.evaluation }}</span>
             </div>
@@ -167,6 +177,45 @@ const groupedByCategory = computed(() => {
   font-size: 11px;
   font-weight: 700;
   cursor: help;
+  position: relative;
+}
+.ind-tooltip:hover::after,
+.ind-tooltip:focus::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: pre-wrap;
+  max-width: 320px;
+  width: max-content;
+  padding: 10px 14px;
+  border-radius: 8px;
+  line-height: 1.6;
+  z-index: 100;
+  pointer-events: none;
+}
+.ind-tooltip:hover::before,
+.ind-tooltip:focus::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1e293b;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.ind-unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
 }
 
 .ind-eval {
