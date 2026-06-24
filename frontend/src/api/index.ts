@@ -1,6 +1,6 @@
 // api/index.ts — SmartReport API 请求层
 import axios from 'axios'
-import type { ApiResponse, Company, KpiResponse, TimelineResponse, BenchmarkResponse, HighlightItem, RiskItem, PredictResponse, PredictInsightResponse, UploadTaskResponse, UploadTaskStatus, ExtractedIndicator, AuthResponse, RegisterRequest, LoginRequest, HistoryItem } from '@/types'
+import type { ApiResponse, Company, KpiResponse, TimelineResponse, BenchmarkResponse, HighlightItem, RiskItem, PredictResponse, PredictInsightResponse, UploadTaskResponse, UploadTaskStatus, ExtractedIndicator, AuthResponse, RegisterRequest, LoginRequest, HistoryItem, ReportLibraryItem } from '@/types'
 
 const api = axios.create({
   baseURL: '/api/v1',
@@ -72,6 +72,12 @@ export const getReportLatest = (companyCode: string) =>
 export const getReportIndicators = (companyCode: string) =>
   api.get<ApiResponse<any>>(`/reports/${companyCode}/indicators`)
 
+export const getReportLibrary = () =>
+  api.get<ApiResponse<ReportLibraryItem[]>>('/report-library')
+
+export const deleteReportLibraryItem = (reportId: number) =>
+  api.delete<ApiResponse<void>>(`/report-library/${reportId}`)
+
 // ============================================================
 // 分析模块
 // ============================================================
@@ -111,7 +117,13 @@ export const getTerms = () =>
 export const sendChatMessage = (payload: { companyCode: string; message: string; sessionId: string }) =>
   fetch('/api/v1/chat/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+      ...(localStorage.getItem('accessToken')
+        ? { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
+        : {}),
+    },
     body: JSON.stringify(payload),
   })
 
@@ -129,6 +141,9 @@ export const uploadReport = (file: File, onUploadProgress?: (percent: number) =>
 
 export const getUploadTask = (taskId: string) =>
   api.get<ApiResponse<UploadTaskStatus>>(`/upload/tasks/${taskId}`)
+
+export const getCrawlProgress = (companyCode: string) =>
+  api.get<ApiResponse<string>>(`/upload/crawl-progress/${companyCode}`)
 
 export const confirmExtraction = (taskId: string, payload: { companyCode: string; companyName?: string; industry?: string; reportYear: number; data: Record<string, ExtractedIndicator> }) =>
   api.post<ApiResponse<void>>(`/upload/tasks/${taskId}/confirm`, payload)

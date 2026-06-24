@@ -44,7 +44,7 @@ const extractedItems = computed(() => {
 
 const avgConfidence = computed(() => {
   if (!extractedItems.value.length) return 0
-  const sum = extractedItems.value.reduce((s, i) => s + i.confidence, 0)
+  const sum = extractedItems.value.reduce((s, i) => s + (i.confidence || 0), 0)
   return Math.round(sum / extractedItems.value.length * 100)
 })
 
@@ -57,6 +57,10 @@ async function handleFile(file?: File) {
   const taskId = await upload(file)
   if (!taskId) return
   emit('uploaded', taskId)
+  if (task.value?.status === 'failed') {
+    error.value = task.value.message || '解析失败，请重试'
+    return
+  }
 
   // Poll for extracted data
   for (let i = 0; i < 30; i++) {
@@ -64,6 +68,10 @@ async function handleFile(file?: File) {
     try {
       const res = await getUploadTask(taskId)
       const d = res.data.data
+      if (d?.status === 'failed') {
+        error.value = d.message || '解析失败，请重试'
+        return
+      }
       if (d?.extractedData) {
         task.value = d
         // Auto-fill company code & year from PDF extraction

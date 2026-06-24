@@ -65,6 +65,8 @@ async def parse_report(request: ParseReportRequest):
         return {"code": 0, "message": "success", "data": data}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"财报解析失败: {exc}") from exc
 
 
 @router.post("/quotes")

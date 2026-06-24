@@ -2,6 +2,24 @@
 import type { TimelineResponse } from '@/types'
 import { cleanIndicatorName } from '@/utils'
 
+const indicatorTips: Record<string, string> = {
+  revenue: '营业收入，反映公司主营业务整体进账规模。',
+  profit: '归母净利润，反映真正归属于股东的盈利水平。',
+  cashFlow: '经营现金流净额，反映公司主营业务实际回笼现金能力。',
+  grossMargin: '毛利率，反映产品或服务的基础赚钱能力。',
+  netMargin: '净利率，反映收入最终转化成净利润的比例。',
+  debtRatio: '资产负债率，反映总资产中有多少比例来自负债融资。',
+  roe: '净资产收益率，反映股东投入资本的回报效率。',
+  eps: '每股收益，反映每一股普通股对应的盈利水平。',
+  rdExpenseRatio: '研发费用率，反映研发投入占收入的比例。',
+  totalAssets: '总资产，反映公司拥有和控制的全部资源规模。',
+  totalLiabilities: '总负债，反映公司需要偿还的全部债务规模。',
+}
+
+function tipFor(metric: TimelineResponse['metrics'][number]) {
+  return indicatorTips[metric.key] || ''
+}
+
 defineProps<{
   timeline: TimelineResponse
   loading?: boolean
@@ -21,7 +39,10 @@ defineProps<{
       <tbody>
         <tr v-for="metric in timeline.metrics" :key="metric.key">
           <td class="metric-name">
-            <span class="metric-label">{{ cleanIndicatorName(metric.name) }}</span>
+            <span class="metric-label">
+              {{ cleanIndicatorName(metric.name) }}
+              <span v-if="tipFor(metric)" class="metric-tooltip" :data-tip="tipFor(metric)">?</span>
+            </span>
             <span class="metric-unit">{{ metric.unit }}</span>
           </td>
           <td v-for="(val, i) in metric.values" :key="i">
@@ -108,6 +129,58 @@ defineProps<{
 .metric-label {
   font-weight: 600;
   color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.metric-tooltip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-muted, #e8ecf1);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: help;
+  position: relative;
+}
+
+.metric-tooltip:hover::after,
+.metric-tooltip:focus::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 12px;
+  font-weight: 400;
+  white-space: pre-wrap;
+  max-width: 320px;
+  width: max-content;
+  padding: 10px 14px;
+  border-radius: 8px;
+  line-height: 1.6;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.metric-tooltip:hover::before,
+.metric-tooltip:focus::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1e293b;
+  z-index: 100;
+  pointer-events: none;
 }
 
 .metric-unit {

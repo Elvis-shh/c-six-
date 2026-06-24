@@ -73,28 +73,32 @@ public class UploadService {
                 .build();
         taskRepository.save(task);
 
-        // Call AI engine to parse the uploaded PDF
+        // PDF files use the structured report parser; other accepted files use OCR/NER.
         try {
-            AiParseReportResponse parseResult = aiEngineClient.parseReport(filePath.toString());
+            AiParseReportResponse parseResult = "pdf".equals(ext)
+                    ? aiEngineClient.parseReport(filePath.toString())
+                    : aiEngineClient.parseUploadedFile(filePath);
             if (parseResult != null && parseResult.getData() != null && parseResult.getData().getExtractedData() != null) {
                 AiParseReportData data = parseResult.getData();
                 Map<String, ExtractedIndicator> extracted = convertExtracted(parseResult);
-                task.setProgressMsg("AI解析完成，请确认提取结果");
-                task.setProgressPercent(85);
-                Map<String, Object> responsePayload = new LinkedHashMap<>();
-                responsePayload.put("extractedData", extracted);
-                responsePayload.put("companyCode", data.getCompanyCode());
-                responsePayload.put("companyName", data.getCompanyName());
-                responsePayload.put("reportYear", data.getReportYear());
-                responsePayload.put("industry", data.getIndustry());
-                task.setResponsePayload(objectMapper.writeValueAsString(responsePayload));
+                if (extracted.isEmpty()) {
+                    markFailed(task, "AI未能从文件中提取到指标数据，请确认文件内容是否包含财务指标");
+                } else {
+                    task.setProgressMsg("AI解析完成，请确认提取结果");
+                    task.setProgressPercent(85);
+                    Map<String, Object> responsePayload = new LinkedHashMap<>();
+                    responsePayload.put("extractedData", extracted);
+                    responsePayload.put("companyCode", data.getCompanyCode());
+                    responsePayload.put("companyName", data.getCompanyName());
+                    responsePayload.put("reportYear", data.getReportYear());
+                    responsePayload.put("industry", data.getIndustry());
+                    task.setResponsePayload(objectMapper.writeValueAsString(responsePayload));
+                }
             } else {
-                task.setProgressMsg("AI未能从文件中提取到指标数据，请确认文件是否为标准财报PDF");
-                task.setProgressPercent(50);
+                markFailed(task, "AI未能从文件中提取到指标数据，请确认文件内容是否为标准财报");
             }
         } catch (Exception e) {
-            task.setProgressMsg("AI解析失败: " + e.getMessage());
-            task.setProgressPercent(30);
+            markFailed(task, "AI解析失败: " + e.getMessage());
         }
         taskRepository.save(task);
 
@@ -175,6 +179,7 @@ public class UploadService {
 
     public void confirm(String taskId, ConfirmExtractionRequest request) {
         MqTaskRecord task = getTask(taskId);
+        validateConfirmRequest(request);
         String companyCode = request.getCompanyCode();
         String industry = request.getIndustry();
 
@@ -191,13 +196,12 @@ public class UploadService {
             companyRepository.save(company);
         }
 
-        // Delete existing upload report for this company+year before creating new
-        reportRepository.findByCompanyCodeAndReportYearAndReportType(companyCode, request.getReportYear(), "annual")
+        // Delete existing upload reports for this company+year before creating new.
+        // Historic data may contain duplicates, so do not query as a single result.
+        reportRepository.findAllByCompanyCodeAndReportYearAndReportType(companyCode, request.getReportYear(), "annual")
+                .stream()
                 .filter(r -> "upload".equals(r.getSource()))
-                .ifPresent(existing -> {
-                    indicatorRepository.deleteByReportId(existing.getId());
-                    reportRepository.delete(existing);
-                });
+                .forEach(this::deleteReportWithIndicators);
 
         FinancialReport report = reportRepository.save(FinancialReport.builder()
                 .companyCode(companyCode)
@@ -243,12 +247,9 @@ public class UploadService {
                             done++; continue;
                         }
 
-                        // Delete any existing report for this year (uploaded or stale)
-                        reportRepository.findByCompanyCodeAndReportYearAndReportType(companyCode, year, "annual")
-                                .ifPresent(existing -> {
-                                    indicatorRepository.deleteByReportId(existing.getId());
-                                    reportRepository.delete(existing);
-                                });
+                        // Delete any existing report for this year (uploaded or stale).
+                        reportRepository.findAllByCompanyCodeAndReportYearAndReportType(companyCode, year, "annual")
+                                .forEach(this::deleteReportWithIndicators);
 
                         FinancialReport crawledReport = reportRepository.save(FinancialReport.builder()
                                 .companyCode(companyCode)
@@ -290,6 +291,33 @@ public class UploadService {
 
     private MqTaskRecord getTask(String taskId) {
         return taskRepository.findByTaskId(taskId).orElseThrow(() -> new IllegalArgumentException("任务不存在: " + taskId));
+    }
+
+    private void deleteReportWithIndicators(FinancialReport report) {
+        indicatorRepository.deleteByReportId(report.getId());
+        reportRepository.delete(report);
+    }
+
+    private void markFailed(MqTaskRecord task, String message) {
+        task.setStatus("failed");
+        task.setProgressMsg(message);
+        task.setProgressPercent(100);
+        task.setCompletedAt(LocalDateTime.now());
+    }
+
+    private void validateConfirmRequest(ConfirmExtractionRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("确认数据不能为空");
+        }
+        if (request.getCompanyCode() == null || request.getCompanyCode().isBlank()) {
+            throw new IllegalArgumentException("请输入公司代码");
+        }
+        if (request.getReportYear() == null) {
+            throw new IllegalArgumentException("请输入报告年份");
+        }
+        if (request.getData() == null || request.getData().isEmpty()) {
+            throw new IllegalArgumentException("提取指标数据不能为空");
+        }
     }
 
     private String safeFileName(MultipartFile file) {

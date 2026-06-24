@@ -5,16 +5,19 @@ import { getHistory, addHistoryItem, deleteHistoryItem, clearHistory, syncHistor
 
 const STORAGE_KEY = 'smartreport_history'
 const MAX_ITEMS = 20
+const items = ref<HistoryRecord[]>([])
 
 export interface HistoryRecord {
   code: string
   name: string
   timestamp: number
   id?: number
+  reportYear?: number
+  source?: string
+  sourceLabel?: string
 }
 
 export function useHistory() {
-  const items = ref<HistoryRecord[]>([])
   const auth = useAuthStore()
 
   function loadLocal(): HistoryRecord[] {
@@ -37,6 +40,9 @@ export function useHistory() {
           name: h.name,
           timestamp: h.timestamp,
           id: h.id,
+          reportYear: h.reportYear,
+          source: h.source,
+          sourceLabel: h.sourceLabel,
         }))
       }
     } catch { /* 未登录或网络错误，使用本地数据 */ }
@@ -50,7 +56,7 @@ export function useHistory() {
         try {
           const res = await syncHistory(localItems.map(i => ({ code: i.code, name: i.name, timestamp: i.timestamp })))
           if (res.data.code === 0 && res.data.data) {
-            items.value = res.data.data.map((h: any) => ({ code: h.code, name: h.name, timestamp: h.timestamp, id: h.id }))
+            items.value = res.data.data.map((h: any) => ({ code: h.code, name: h.name, timestamp: h.timestamp, id: h.id, reportYear: h.reportYear, source: h.source, sourceLabel: h.sourceLabel }))
             localStorage.removeItem(STORAGE_KEY) // 清除本地
             return
           }
@@ -63,8 +69,8 @@ export function useHistory() {
     }
   }
 
-  async function add(company: { code: string; name: string }) {
-    const record: HistoryRecord = { code: company.code, name: company.name, timestamp: Date.now() }
+  async function add(company: { code: string; name: string; reportYear?: number; sourceLabel?: string }) {
+    const record: HistoryRecord = { code: company.code, name: company.name, reportYear: company.reportYear, sourceLabel: company.sourceLabel, timestamp: Date.now() }
     items.value = items.value.filter(i => i.code !== company.code)
     items.value.unshift(record)
     if (items.value.length > MAX_ITEMS) {

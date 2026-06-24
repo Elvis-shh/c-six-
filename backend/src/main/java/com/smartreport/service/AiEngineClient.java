@@ -8,14 +8,18 @@ import com.smartreport.models.dto.ParseDtos.AiParseReportResponse;
 import com.smartreport.models.dto.ParseDtos.AiParseReportRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -68,6 +72,17 @@ public class AiEngineClient {
                 .uri("/ai/v1/reports/parse")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new AiParseReportRequest(filePath))
+                .retrieve()
+                .body(AiParseReportResponse.class);
+    }
+
+    public AiParseReportResponse parseUploadedFile(Path filePath) {
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", new FileSystemResource(filePath));
+        return restClient.post()
+                .uri("/ai/v1/ocr/parse")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(body)
                 .retrieve()
                 .body(AiParseReportResponse.class);
     }

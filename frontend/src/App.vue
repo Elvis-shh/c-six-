@@ -13,7 +13,7 @@ import { useRoute } from 'vue-router'
 import Navbar from '@/components/Navbar.vue'
 
 const route = useRoute()
-const showNavbar = computed(() => route.name !== 'Search')
+const showNavbar = computed(() => route.name !== 'Login')
 </script>
 
 <style scoped>

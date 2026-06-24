@@ -3,6 +3,7 @@ package com.smartreport.service;
 import com.smartreport.models.entity.Company;
 import com.smartreport.models.entity.UserSearchHistory;
 import com.smartreport.repository.CompanyRepository;
+import com.smartreport.repository.FinancialReportRepository;
 import com.smartreport.repository.UserSearchHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -18,6 +19,7 @@ public class HistoryService {
     private static final int MAX_ITEMS = 50;
     private final UserSearchHistoryRepository historyRepo;
     private final CompanyRepository companyRepository;
+    private final FinancialReportRepository reportRepository;
 
     public void addHistory(Long userId, String companyCode, String companyName) {
         historyRepo.deleteByUserIdAndCompanyCode(userId, companyCode);
@@ -46,6 +48,13 @@ public class HistoryService {
                     : System.currentTimeMillis());
             Company company = companyRepository.findById(h.getCompanyCode()).orElse(null);
             item.put("name", company != null ? company.getName() : h.getCompanyCode());
+            reportRepository.findByCompanyCodeOrderForDisplayIncludingParsed(h.getCompanyCode()).stream()
+                    .findFirst()
+                    .ifPresent(report -> {
+                        item.put("reportYear", report.getReportYear());
+                        item.put("source", report.getSource());
+                        item.put("sourceLabel", "upload".equals(report.getSource()) ? "用户上传" : "系统内置");
+                    });
             result.add(item);
         }
         return result;

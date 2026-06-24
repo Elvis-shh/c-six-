@@ -61,10 +61,15 @@ export function useChat(companyCode: Ref<string>) {
     const progressTimer = setInterval(() => {
       if (store.progress < 85) store.progress += 1
     }, 200)
+    let content = ''
+    let receivedToken = false
 
     try {
       const response = await sendChatMessage({ companyCode: companyCode.value, message, sessionId: store.sessionId })
       if (!response.ok || !response.body) {
+        if (response.status === 401) {
+          throw new Error('unauthorized')
+        }
         throw new Error(`chat request failed: ${response.status}`)
       }
       const reader = response.body?.getReader()
@@ -72,8 +77,6 @@ export function useChat(companyCode: Ref<string>) {
 
       const decoder = new TextDecoder()
       let buffer = ''
-      let content = ''
-      let receivedToken = false
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -82,7 +85,12 @@ export function useChat(companyCode: Ref<string>) {
         buffer = lines.pop() || ''
         for (const line of lines) {
           if (!line.startsWith('data:')) continue
-          const payload = JSON.parse(line.replace(/^data:\s*/, ''))
+          let payload: any
+          try {
+            payload = JSON.parse(line.replace(/^data:\s*/, ''))
+          } catch {
+            continue
+          }
           if (payload.type === 'thinking') {
             store.progress = Math.max(store.progress, 30)
           }
@@ -109,7 +117,15 @@ export function useChat(companyCode: Ref<string>) {
         throw new Error('no chat tokens received')
       }
     } catch (error) {
-      store.updateLastAssistant('智能问答暂时不可用，请稍后重试。')
+      if (receivedToken) {
+        store.updateLastAssistant(stripTrailingRefs(content), undefined, buildFollowUps(message))
+        return
+      }
+      if (error instanceof Error && error.message === 'unauthorized') {
+        store.updateLastAssistant('请先登录后再使用智能问答。')
+      } else {
+        store.updateLastAssistant('智能问答暂时不可用，请稍后重试。')
+      }
     } finally {
       clearInterval(progressTimer)
       store.progress = 100

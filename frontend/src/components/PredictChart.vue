@@ -3,6 +3,7 @@ import { computed, ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import { getPredict } from '@/api'
 import { cleanIndicatorName } from '@/utils'
+import type { PredictInsightResponse } from '@/types'
 
 Chart.register(...registerables)
 
@@ -12,7 +13,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const predictData = ref<any>(null)
 const insights = ref<any>(null)
-const fullInsights = ref<InsightData | null>(null)
+const fullInsights = ref<PredictInsightResponse | null>(null)
 const selectedMetric = ref(0)
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -33,7 +34,7 @@ const currentMetric = computed(() => metricOptions.value[selectedIndex.value])
 const currentInsight = computed(() => insights.value?.[currentMetric.value?.key])
 
 function formatYAxisTick(n: number, unit: string): string {
-  if (unit === '%') return n.toFixed(0) + '%'
+  if (unit === '%') return n.toFixed(2) + '%'
   if (Math.abs(n) >= 100000000) return (n / 100000000).toFixed(1) + '亿'
   if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1) + '万'
   return String(n)
@@ -41,7 +42,7 @@ function formatYAxisTick(n: number, unit: string): string {
 
 function formatTooltip(v: number, unit: string): string {
   if (v == null) return '—'
-  if (unit === '%') return Number(v).toFixed(1) + '%'
+  if (unit === '%') return Number(v).toFixed(2) + '%'
   if (unit === '亿') return Number(v).toFixed(2) + ' 亿'
   if (unit === '万') return Number(v).toFixed(2) + ' 万'
   return Number(v).toLocaleString('zh-CN')

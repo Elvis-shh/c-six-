@@ -154,6 +154,21 @@ export interface HistoryItem {
   code: string
   name: string
   timestamp: number
+  reportYear?: number
+  source?: string
+  sourceLabel?: string
+}
+
+export interface ReportLibraryItem {
+  id: number
+  companyCode: string
+  companyName: string
+  reportYear: number
+  reportType: string
+  source: string
+  sourceLabel: string
+  deletable: boolean
+  createdAt?: string
 }
 
 export interface UploadTaskResponse {

@@ -7,16 +7,19 @@ import { useDashboardStore } from '@/stores'
 import { useAuthStore } from '@/stores/authStore'
 import SearchBox from '@/components/SearchBox.vue'
 import ExportMenu from '@/components/ExportMenu.vue'
+import ReportLibraryModal from '@/components/ReportLibraryModal.vue'
 import { logoutUser } from '@/api'
 
 const router = useRouter()
 const route = useRoute()
 const { items, remove, clear } = useHistory()
 const showDropdown = ref(false)
+const showLibrary = ref(false)
 const dashboardStore = useDashboardStore()
 const auth = useAuthStore()
 
 const showExport = computed(() => route.name === 'Dashboard')
+const showNavSearch = computed(() => route.name !== 'Search')
 const companyName = computed(() => dashboardStore.kpiData?.company?.name || '未知公司')
 
 const { exporting, format, exportPNG, exportPDF, exportWord, exportExcel } = useExport(companyName)
@@ -48,22 +51,16 @@ async function handleLogout() {
     <div class="navbar-inner">
       <div class="navbar-left">
         <span class="brand" @click="goHome">📊 SmartReport</span>
+        <button class="library-btn" @click="showLibrary = true">财报库</button>
       </div>
 
-      <div class="navbar-center">
+      <div v-if="showNavSearch" class="navbar-center">
         <SearchBox compact placeholder="搜索公司名称或代码..." />
       </div>
+      <div v-else class="navbar-center navbar-center-empty" />
 
       <div class="navbar-right">
         <ExportMenu v-if="showExport" :disabled="exporting" @export="handleExport" />
-        <!-- Phase 4: 登录/用户按钮 -->
-        <button v-if="!auth.isLoggedIn" class="auth-btn" @click="router.push('/login')">
-          🔑 登录
-        </button>
-        <div v-else class="user-info">
-          <span class="user-name">{{ auth.user?.nickname || auth.user?.email }}</span>
-          <button class="auth-btn" @click="handleLogout">退出</button>
-        </div>
         <div class="history-wrapper">
           <button class="history-btn" @click="showDropdown = !showDropdown">
             📋 最近分析
@@ -80,7 +77,11 @@ async function handleLogout() {
             >
               <div class="history-item-main">
                 <span class="history-name">{{ item.name }}</span>
-                <span class="history-code">{{ item.code }}</span>
+                <span class="history-code">
+                  {{ item.code }}
+                  <template v-if="item.reportYear"> · {{ item.reportYear }} 年报</template>
+                  <template v-if="item.sourceLabel"> · {{ item.sourceLabel }}</template>
+                </span>
               </div>
               <span class="history-time">{{ relativeTime(item.timestamp) }}</span>
               <button class="history-del" @click.stop="remove(item.code)">×</button>
@@ -90,8 +91,17 @@ async function handleLogout() {
             </div>
           </div>
         </div>
+        <!-- Phase 4: 登录/用户按钮 -->
+        <button v-if="!auth.isLoggedIn" class="auth-btn" @click="router.push('/login')">
+          🔑 登录
+        </button>
+        <div v-else class="user-info">
+          <span class="user-name">{{ auth.user?.nickname || auth.user?.email }}</span>
+          <button class="auth-btn" @click="handleLogout">退出</button>
+        </div>
       </div>
     </div>
+    <ReportLibraryModal :open="showLibrary" @close="showLibrary = false" />
   </nav>
 </template>
 
@@ -113,7 +123,7 @@ async function handleLogout() {
   height: 100%;
   gap: 20px;
 }
-.navbar-left { flex-shrink: 0; }
+.navbar-left { flex-shrink: 0; display: flex; align-items: center; gap: 12px; }
 .brand {
   font-size: 18px;
   font-weight: 700;
@@ -121,8 +131,17 @@ async function handleLogout() {
   cursor: pointer;
   user-select: none;
 }
+.library-btn {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.library-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
 .navbar-center { flex: 1; display: flex; justify-content: center; }
-.navbar-right { flex-shrink: 0; display: flex; gap: 8px; }
+.navbar-right { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 
 .history-wrapper { position: relative; }
 .history-btn {
@@ -227,5 +246,6 @@ async function handleLogout() {
 @media (max-width: 768px) {
   .navbar-center { display: none; }
   .navbar-inner { gap: 10px; }
+  .user-name { display: none; }
 }
 </style>

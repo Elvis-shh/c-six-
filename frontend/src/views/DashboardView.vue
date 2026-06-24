@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDashboard } from '@/composables/useDashboard'
 import { useHistory } from '@/composables/useHistory'
@@ -22,14 +22,15 @@ const code = computed(() => route.params.code as string)
 const { loading, error, kpiData, timelineData, retry } = useDashboard(code as Ref<string>)
 const history = useHistory()
 
-computed(() => {
-  if (kpiData.value?.company) {
+watch(kpiData, value => {
+  if (value?.company) {
     history.add({
-      code: kpiData.value.company.code,
-      name: kpiData.value.company.name,
+      code: value.company.code,
+      name: value.company.name,
+      reportYear: value.reportYear,
     })
   }
-})
+}, { immediate: true })
 </script>
 
 <template>
