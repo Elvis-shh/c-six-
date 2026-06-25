@@ -11,6 +11,10 @@
 - Docker + Docker Compose
 - 主机内存 >= 4GB
 
+### api接入
+需要手动接入自己的deepseekAPI，或其他模型api。会影响ai的使用效果。
+请在/devops/.env中输入自己的API。
+
 ### 一键部署
 
 ```bash
